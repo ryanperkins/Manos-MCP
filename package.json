@@ -1,0 +1,63 @@
+{
+  "name": "manos",
+  "version": "0.1.0",
+  "description": "A CLI MCP server for ad-hoc UI testing of Android & iOS apps — a tight act+observe loop, device-condition control, log/crash & network capture, OCR targeting, accessibility audits, and session recording that exports a replayable flow.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanperkins/Manos-MCP.git"
+  },
+  "homepage": "https://github.com/ryanperkins/Manos-MCP#readme",
+  "bugs": {
+    "url": "https://github.com/ryanperkins/Manos-MCP/issues"
+  },
+  "bin": {
+    "manos": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "docs",
+    "assets",
+    "README.md",
+    "IMPROVEMENTS.md",
+    "NETWORK.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "serve": "node dist/cli.js serve",
+    "doctor": "node dist/cli.js doctor",
+    "devices": "node dist/cli.js devices",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "android",
+    "ios",
+    "mobile",
+    "testing",
+    "automation",
+    "maestro",
+    "adb",
+    "simctl"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "author": "Ryan Perkins Mata",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "fast-xml-parser": "^4.5.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

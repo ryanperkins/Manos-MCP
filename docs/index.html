@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manos — features, install &amp; platform comparison</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --panel-2: #1e222b;
+        --text: #e6e9ef;
+        --muted: #98a2b3;
+        --border: #2a2f3a;
+        --accent: #6ea8fe;
+        --full: #3ddc97;
+        --partial: #f5b455;
+        --none: #6b7280;
+        --code: #0b0d11;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f7f8fa; --panel: #fff; --panel-2: #f1f3f7; --text: #1a1d24;
+          --muted: #5a6472; --border: #e2e6ee; --accent: #2563eb; --code: #f1f3f7;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .wrap { max-width: 1040px; margin: 0 auto; padding: 40px 24px 80px; }
+      header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+      header .tag { color: var(--muted); font-size: 17px; margin: 0 0 8px; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      h2 { font-size: 20px; margin: 48px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); scroll-margin-top: 16px; }
+      h3 { font-size: 15px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+      h4 { font-size: 15px; margin: 20px 0 6px; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      code { background: var(--code); padding: 1px 5px; border-radius: 5px; font-size: 13px; }
+      pre { background: var(--code); border: 1px solid var(--border); border-radius: 10px; padding: 16px; overflow-x: auto; font-size: 13px; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+      .card b { display: block; margin-bottom: 4px; }
+      .card p { margin: 0; color: var(--muted); font-size: 13px; }
+      table { width: 100%; border-collapse: collapse; margin: 8px 0 4px; background: var(--panel); border-radius: 12px; overflow: hidden; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { background: var(--panel-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+      tr:last-child td { border-bottom: none; }
+      td.tool { white-space: nowrap; font-family: ui-monospace, monospace; font-size: 13px; }
+      .cat td { background: var(--panel-2); font-weight: 600; font-size: 13px; letter-spacing: 0.03em; }
+      .badge { display: inline-block; min-width: 78px; text-align: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
+      .b-full { background: color-mix(in srgb, var(--full) 22%, transparent); color: var(--full); }
+      .b-partial { background: color-mix(in srgb, var(--partial) 22%, transparent); color: var(--partial); }
+      .b-none { background: color-mix(in srgb, var(--none) 26%, transparent); color: var(--none); }
+      .b-next { background: color-mix(in srgb, var(--full) 20%, transparent); color: var(--full); }
+      .b-planned { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+      .b-later { background: color-mix(in srgb, var(--none) 26%, transparent); color: var(--none); }
+      .note { color: var(--muted); font-size: 12px; }
+      .legend { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0; align-items: center; }
+      .pill { background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 12px; color: var(--muted); }
+      .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 4px; }
+      .toc a { background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 5px 13px; font-size: 13px; color: var(--muted); }
+      .toc a:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
+      /* Tabs */
+      .tabs { margin: 16px 0 8px; }
+      .tablist { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); }
+      .tab-btn { background: transparent; border: 1px solid transparent; border-bottom: none; color: var(--muted); padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; font-family: inherit; }
+      .tab-btn:hover { color: var(--text); }
+      .tab-btn[aria-selected="true"] { color: var(--text); background: var(--panel); border-color: var(--border); position: relative; top: 1px; }
+      .tab-panel { display: none; background: var(--panel); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; padding: 16px; }
+      .tab-panel.active { display: block; }
+      .tab-panel pre { margin: 0 0 8px; }
+      .tab-panel p { margin: 0 0 8px; }
+      .tab-panel p:last-child, .tab-panel pre:last-child { margin-bottom: 0; }
+      /* Callout / setup boxes */
+      .callout { background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 14px; margin: 12px 0; font-size: 13px; }
+      .callout b { color: var(--text); }
+      .callout.warn { border-left-color: var(--partial); }
+      .adv { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin: 14px 0; }
+      .adv h4 { margin-top: 0; }
+      .adv p { color: var(--muted); margin: 0 0 8px; }
+      .adv .tools-line { font-size: 13px; }
+      footer { margin-top: 60px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); padding-top: 18px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Manos</h1>
+        <p class="tag">A CLI MCP server for ad-hoc UI testing of Android &amp; iOS apps — a tight act+observe loop, device-condition control, log/crash &amp; network capture, accessibility audits, OCR targeting, and recording that turns an exploratory session into a replayable regression flow.</p>
+      </header>
+
+      <nav class="toc">
+        <a href="#what">What it is</a>
+        <a href="#install">Installation</a>
+        <a href="#basics">Basic operations</a>
+        <a href="#matrix">Capability matrix</a>
+        <a href="#advanced">Advanced operations</a>
+        <a href="#reference">Tool reference</a>
+        <a href="#upcoming">Upcoming features</a>
+      </nav>
+
+      <h2 id="what">What it is</h2>
+      <p>
+        Manos drives Android emulators/devices (via <code>adb</code>) and iOS simulators
+        (via <code>xcrun simctl</code>, with <code>idb</code> for native UI interaction) over the
+        <a href="https://modelcontextprotocol.io">Model Context Protocol</a>. It's purpose-built for the
+        exploratory, test-free loop where an LLM agent pokes at an app and reacts to what it sees: atomic
+        act+observe actions, control over the device conditions real users hit, crash/log and network
+        capture for when something breaks, an accessibility audit, and one-call recording that promotes an
+        ad-hoc session into a replayable regression test. See the
+        <a href="../IMPROVEMENTS.md">design notes &amp; roadmap</a> for the rationale.
+      </p>
+
+      <div class="cards">
+        <div class="card"><b>Act + observe</b><p>Every tap/type/swipe optionally returns the new screen state or a diff — one round-trip instead of act → inspect → repeat.</p></div>
+        <div class="card"><b>Stable element ids</b><p>Hierarchy nodes get content-based ids that survive counters/clocks, so screen diffs mean something.</p></div>
+        <div class="card"><b>Device conditions</b><p>Dark mode, locale, GPS, network, orientation, font scale, status bar — test the states real users hit.</p></div>
+        <div class="card"><b>Crash &amp; log capture</b><p>logcat / unified log with automatic crash &amp; ANR detection surfaced on every fetch.</p></div>
+        <div class="card"><b>Accessibility audit</b><p>Touch-target size, unlabeled controls, duplicate labels — graded against per-platform guidelines.</p></div>
+        <div class="card"><b>OCR fallback</b><p>When the a11y tree is thin (styled buttons, canvas/Flutter, WebViews), <code>find_text</code> OCRs the screenshot to find &amp; tap on-screen text.</p></div>
+        <div class="card"><b>Network capture</b><p>Decrypted HTTP from debug builds, filtered to your endpoints — Frida/OkHttp on Android, mitmproxy on iOS.</p></div>
+        <div class="card"><b>Session → flow</b><p>Record an ad-hoc session and export it as a replayable Maestro flow + HTML report. Promote exploration into a regression test.</p></div>
+      </div>
+
+      <!-- ===================== INSTALLATION ===================== -->
+      <h2 id="install">Installation</h2>
+      <p>Manos is a stdio MCP server published to npm. Most AI clients can launch it on demand with <code>npx</code> — no install step — so the snippets below use that. Prefer a resident binary? <code>npm install -g manos</code> and use a bare <code>manos serve</code> instead.</p>
+
+      <h3>1 · Install (optional)</h3>
+      <pre># run on demand — nothing to install:
+npx -y manos serve
+
+# …or install the CLI globally:
+npm install -g manos</pre>
+      <p class="note">Requires <b>Node 20+</b>. Working on manos itself, or pinning a local build? Clone the repo, <code>npm install</code> (it builds via the <code>prepare</code> script), and point your client at <code>node /ABS/PATH/to/Manos-MCP/dist/cli.js serve</code>.</p>
+
+      <h3>2 · Register with your AI client</h3>
+      <div class="tabs" id="client-tabs">
+        <div class="tablist" role="tablist">
+          <button class="tab-btn" role="tab" aria-selected="true">Claude Code</button>
+          <button class="tab-btn" role="tab" aria-selected="false">Claude Desktop</button>
+          <button class="tab-btn" role="tab" aria-selected="false">Cursor</button>
+          <button class="tab-btn" role="tab" aria-selected="false">VS Code (Copilot)</button>
+          <button class="tab-btn" role="tab" aria-selected="false">Windsurf</button>
+          <button class="tab-btn" role="tab" aria-selected="false">Other / generic</button>
+        </div>
+
+        <div class="tab-panel active" role="tabpanel">
+          <p>One command registers the server (add <code>-s user</code> to share it across all your projects):</p>
+          <pre>claude mcp add manos -- npx -y manos serve
+
+# globally installed binary instead:
+claude mcp add manos -- manos serve</pre>
+          <p>Verify with <code>claude mcp list</code>, then ask Claude to “list mobile devices.”</p>
+        </div>
+
+        <div class="tab-panel" role="tabpanel">
+          <p>Edit <code>claude_desktop_config.json</code> (macOS: <code>~/Library/Application&nbsp;Support/Claude/</code>, Windows: <code>%APPDATA%\Claude\</code>) and restart the app:</p>
+          <pre>{
+  "mcpServers": {
+    "manos": {
+      "command": "npx",
+      "args": ["-y", "manos", "serve"]
+    }
+  }
+}</pre>
+        </div>
+
+        <div class="tab-panel" role="tabpanel">
+          <p>Project-scoped <code>.cursor/mcp.json</code> (or global <code>~/.cursor/mcp.json</code>):</p>
+          <pre>{
+  "mcpServers": {
+    "manos": {
+      "command": "npx",
+      "args": ["-y", "manos", "serve"]
+    }
+  }
+}</pre>
+          <p>Then enable <b>manos</b> under Settings → MCP.</p>
+        </div>
+
+        <div class="tab-panel" role="tabpanel">
+          <p>Agent mode reads <code>.vscode/mcp.json</code> (note the <code>servers</code> key and explicit <code>type</code>):</p>
+          <pre>{
+  "servers": {
+    "manos": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "manos", "serve"]
+    }
+  }
+}</pre>
+          <p>Open the Copilot Chat <b>Agent</b> picker and toggle the manos tools on.</p>
+        </div>
+
+        <div class="tab-panel" role="tabpanel">
+          <p><code>~/.codeium/windsurf/mcp_config.json</code>:</p>
+          <pre>{
+  "mcpServers": {
+    "manos": {
+      "command": "npx",
+      "args": ["-y", "manos", "serve"]
+    }
+  }
+}</pre>
+          <p>Then hit <b>Refresh</b> in the Windsurf MCP panel.</p>
+        </div>
+
+        <div class="tab-panel" role="tabpanel">
+          <p>Any MCP-capable client speaks the same stdio protocol. Configure a server that runs:</p>
+          <pre>command: npx
+args:    ["-y", "manos", "serve"]
+transport: stdio</pre>
+          <p>The most common config shape is a <code>mcpServers</code> object keyed by server name with <code>command</code> + <code>args</code>, as shown in the other tabs.</p>
+        </div>
+      </div>
+
+      <h3>3 · Verify the toolchain</h3>
+      <pre>npx -y manos doctor        # or: manos doctor</pre>
+      <p class="note"><code>doctor</code> reports which backends it found (<code>adb</code>, <code>xcrun</code>, <code>idb</code>, <code>maestro</code>, OCR engine), lists connected devices, and prints each device's live capabilities — so you know what works before you rely on it. Android needs <code>adb</code> (auto-detected from <code>$ANDROID_HOME</code> / the default SDK path); iOS needs Xcode's <code>xcrun</code>. Everything else is optional and only gates the advanced features below.</p>
+
+      <!-- ===================== BASIC OPERATIONS ===================== -->
+      <h2 id="basics">Basic operations</h2>
+      <p>
+        The everyday unit of work is <b>act → observe</b>: most sessions cycle through a handful of
+        tools, and each action can return the resulting screen so you rarely call <code>inspect_screen</code> twice in a row.
+      </p>
+
+      <table id="basic"></table>
+
+      <h3>A typical loop</h3>
+      <p class="note">Sign in, then wait for the landing screen — five calls, each act returning what changed:</p>
+      <pre>list_devices                                              # → pick a device_id
+inspect_screen   { device_id }                            # compact tree, stable ids
+tap              { device_id, text: "Sign In", observe: "diff" }
+input_text       { device_id, text: "user@example.com" }
+tap              { device_id, text: "Continue", observe: "screen" }
+wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
+
+      <div class="callout">
+        <b>Targeting, in order of resilience.</b> Prefer a selector over coordinates — Manos records
+        selectors for resilient replay. Pass <code>id</code> (from <code>inspect_screen</code>),
+        <code>text</code>, <code>resource_id</code>, or <code>accessibility</code>; fall back to
+        <code>x</code>/<code>y</code> only when nothing else matches. If a <code>text</code> selector
+        finds nothing in the tree, Manos automatically retries with OCR (or force it with
+        <code>tap&nbsp;{ text, ocr: true }</code>).
+      </div>
+
+      <div class="callout">
+        <b>The <code>observe</code> modes.</b> <code>"diff"</code> (added/removed/changed nodes — cheapest
+        for a step-by-step loop), <code>"screen"</code> (the full new tree), <code>"screenshot"</code>
+        (a PNG), or <code>"none"</code> (just do it). Stable ids are what make <code>diff</code> meaningful.
+      </div>
+
+      <!-- ===================== MATRIX ===================== -->
+      <h2 id="matrix">Android vs iOS capability matrix</h2>
+      <div class="legend">
+        <span class="pill"><span class="badge b-full">FULL</span> &nbsp;native, reliable</span>
+        <span class="pill"><span class="badge b-partial">PARTIAL</span> &nbsp;works with caveats / extra setup</span>
+        <span class="pill"><span class="badge b-none">N/A</span> &nbsp;not feasible on this platform</span>
+      </div>
+      <table id="matrix"></table>
+      <p class="note">Capabilities are reported live per device by the <code>device_capabilities</code> tool and the <code>doctor</code> command, including the active backend — the agent never has to guess what a platform supports.</p>
+
+      <!-- ===================== ADVANCED ===================== -->
+      <h2 id="advanced">Advanced operations &amp; setup</h2>
+      <p>
+        These go beyond tap/inspect. Each is capability-gated and degrades gracefully — Manos tells you
+        what's missing instead of failing opaquely. Where a feature needs something special on the
+        developer's machine or build, the setup is called out below.
+      </p>
+
+      <div class="adv">
+        <h4>🔌 Network capture (decrypted HTTP)</h4>
+        <p>Capture the real HTTP an app makes — above TLS, post-decryption — filtered to the endpoints you care about so the agent isn't flooded. Bodies are decompressed and readable.</p>
+        <p class="tools-line"><code>network_start</code> · <code>network_requests</code> · <code>network_clear</code> · <code>network_stop</code></p>
+        <div class="callout">
+          <b>Android setup (Frida / OkHttp hook).</b> Works through HTTP/2, certificate pinning, and proxy-bypass because it hooks OkHttp in-process, not the socket.
+          <br>• A <b>debuggable</b> app build (or any app on an emulator / rooted device).
+          <br>• <code>frida-server</code> running on the device (matching the host Frida version).
+          <br>• Host tooling: <code>pip install "frida==16.7.19" frida-tools</code> (Frida 16.7.x keeps the global <code>Java</code> bridge the OkHttp hook relies on).
+          <br>Then: <code>network_start { device_id, app_id, filter: "yourapi\\.com" }</code> → interact → <code>network_requests</code>.
+        </div>
+        <div class="callout">
+          <b>iOS Simulator setup (mitmproxy).</b> <code>brew install mitmproxy</code>. Manos installs a <code>simctl</code>-trusted CA and manages the macOS proxy automatically (saved &amp; restored on stop — no sudo). Apps using <code>NSURLSession</code> certificate pinning are not yet captured (NSURLSession Frida hook is planned).
+        </div>
+        <p class="note">Full walkthrough and troubleshooting: <a href="../NETWORK.md">NETWORK.md</a>.</p>
+      </div>
+
+      <div class="adv">
+        <h4>🔎 OCR fallback for off-tree elements</h4>
+        <p>Styled <code>&lt;div&gt;</code> buttons, canvas/Flutter/game UIs, and poor-a11y WebViews expose little hierarchy. <code>find_text</code> OCRs the screenshot and returns pixel-accurate boxes; targeting falls back to OCR automatically, or force it with <code>tap { text, ocr: true }</code>.</p>
+        <p class="tools-line"><code>find_text</code> · <code>tap / input_text { ocr: true }</code></p>
+        <div class="callout">
+          <b>Setup.</b> On macOS, OCR uses <b>Apple Vision</b> via a tiny Swift helper compiled &amp; cached on first use (needs Xcode Command Line Tools — no extra install). Elsewhere it falls back to <b>Tesseract</b> (<code>brew install tesseract</code> / <code>apt install tesseract-ocr</code>). <code>doctor</code> prints the active engine.
+        </div>
+      </div>
+
+      <div class="adv">
+        <h4>⚡ Warm-session speed</h4>
+        <p>When adb's <code>uiautomator dump</code> can't reach UI-idle (apps with constant animation/watermarks), Manos keeps <b>one long-lived warm hierarchy engine</b> resident instead of cold-starting the JVM per call: steady-state inspect drops from ~9–14s to ~175ms. The choice is cached per device; the child is process-tree-killed on exit.</p>
+        <div class="callout"><b>Setup.</b> None — automatic. The warm engine and the cross-platform interaction fallback are provided by <code>maestro</code> under the hood, so it must be on PATH.</div>
+      </div>
+
+      <div class="adv">
+        <h4>📼 Session recording → regression test</h4>
+        <p>Record an exploratory session and promote it to CI in one call. <code>export_flow</code> emits a valid Maestro flow (verified with <code>maestro check-syntax</code>) using resilient selectors; <code>export_report</code> writes a self-contained HTML timeline — a screenshot after every action plus an appendix bundling the flow YAML, captured network, and recent logs/crashes.</p>
+        <p class="tools-line"><code>start_recording { report: true }</code> · <code>export_flow</code> · <code>export_report</code></p>
+        <div class="callout"><b>Setup.</b> None. Pass <code>report:true</code> to <code>start_recording</code> to capture per-step screenshots for the HTML report.</div>
+      </div>
+
+      <div class="adv">
+        <h4>🎚️ Condition presets</h4>
+        <p>Apply many device conditions in one call, or a named preset, with per-condition applied / skipped (with reason) / failed reporting.</p>
+        <p class="tools-line"><code>set_conditions { preset: "accessibility" | "offline" | "screenshot" | "dark" | "international" | "reset", ...overrides }</code></p>
+        <div class="callout"><b>Setup.</b> None. Individual conditions are capability-gated (see the matrix) — e.g. <code>set_network</code> is emulator-only on Android, <code>push_notification</code> is iOS-only.</div>
+      </div>
+
+      <div class="adv">
+        <h4>▶️ Run authored flows</h4>
+        <p>Execute a declarative flow locally — inline YAML, a file, or a directory of flows — against a connected device. Sessions captured with <code>export_flow</code> run here unchanged, so an exploratory session becomes a repeatable check.</p>
+        <p class="tools-line"><code>run_flow</code> · <code>cheat_sheet</code></p>
+        <div class="callout"><b>Setup.</b> Needs <code>maestro</code> on PATH — the same engine used for the warm session — which runs the flow against your local emulator/simulator.</div>
+      </div>
+
+      <div class="adv">
+        <h4>📱 Fast native iOS control (idb)</h4>
+        <p>iOS UI interaction works out of the box via the Maestro fallback (call <code>launch_app</code> first), but <code>idb</code> makes tap/type/inspect noticeably faster and unlocks the full key set.</p>
+        <div class="callout"><b>Setup.</b> <code>brew install idb-companion &amp;&amp; pipx install fb-idb</code>. Manos auto-detects it and reports the active backend per device.</div>
+      </div>
+
+      <!-- ===================== TOOL REFERENCE ===================== -->
+      <h2 id="reference">Tool reference</h2>
+      <table id="tools"></table>
+
+      <!-- ===================== UPCOMING ===================== -->
+      <h2 id="upcoming">Upcoming features</h2>
+      <p>The roadmap, drawn from <a href="../IMPROVEMENTS.md">IMPROVEMENTS.md</a>. Status reflects priority, not a commitment date.</p>
+      <div class="legend">
+        <span class="pill"><span class="badge b-next">NEXT</span> &nbsp;highest priority</span>
+        <span class="pill"><span class="badge b-planned">PLANNED</span> &nbsp;on the roadmap</span>
+        <span class="pill"><span class="badge b-later">EXPLORING</span> &nbsp;ideas / scale</span>
+      </div>
+      <table id="upcoming"></table>
+
+      <footer>
+        Generated docs for manos v0.1.0 ·
+        Backends: adb · xcrun simctl · idb · Frida · mitmproxy · Apple&nbsp;Vision / Tesseract · maestro (flow engine)
+      </footer>
+    </div>
+
+    <script>
+      const F = ["full", "FULL", "b-full"], P = ["partial", "PARTIAL", "b-partial"], N = ["none", "N/A", "b-none"];
+      const NEXT = ["next", "NEXT", "b-next"], PLAN = ["planned", "PLANNED", "b-planned"], LATER = ["later", "EXPLORING", "b-later"];
+      function cell(level, note) {
+        const [, label, cls] = level;
+        return `<td><span class="badge ${cls}">${label}</span>${note ? `<div class="note">${note}</div>` : ""}</td>`;
+      }
+
+      // ---- Tabs ----
+      document.querySelectorAll(".tabs").forEach((tabs) => {
+        const btns = [...tabs.querySelectorAll(".tab-btn")];
+        const panels = [...tabs.querySelectorAll(".tab-panel")];
+        btns.forEach((btn, i) =>
+          btn.addEventListener("click", () => {
+            btns.forEach((b) => b.setAttribute("aria-selected", "false"));
+            panels.forEach((p) => p.classList.remove("active"));
+            btn.setAttribute("aria-selected", "true");
+            panels[i].classList.add("active");
+          }),
+        );
+      });
+
+      // ---- Capability matrix: [tool, androidLevel, androidNote, iosLevel, iosNote] ----
+      const matrix = [
+        ["__Inspection & interaction__"],
+        ["inspect_screen", F, "uiautomator → warm maestro session → cold CLI", F, "idb, or warm maestro session"],
+        ["take_screenshot", F, "screencap", F, "simctl io"],
+        ["tap / long_press", F, "adb input", P, "idb (full); maestro needs launch_app first"],
+        ["input_text", F, "adb input text", P, "idb (full); maestro fallback"],
+        ["swipe", F, "adb input swipe", P, "idb (full); maestro fallback"],
+        ["press_key", F, "rich keyevents", P, "limited keys (enter/delete/tab/home/lock/siri)"],
+        ["find_text (OCR)", F, "Apple Vision / Tesseract", F, "Apple Vision / Tesseract"],
+        ["assert / wait_for / find_elements", F, "built on inspect", F, "built on inspect"],
+        ["__App lifecycle & state__"],
+        ["launch_app / stop_app", F, "am / monkey", F, "simctl launch/terminate"],
+        ["clear_app_state", F, "pm clear — true data wipe", P, "resets permissions; full wipe needs reinstall"],
+        ["open_deeplink", F, "am start VIEW", F, "simctl openurl"],
+        ["set_permission", F, "pm grant/revoke", F, "simctl privacy"],
+        ["__Device conditions__"],
+        ["set_appearance", F, "cmd uimode night", F, "simctl ui appearance"],
+        ["set_orientation", F, "settings user_rotation", N, "no CLI; rotate via Simulator menu (Cmd+←/→)"],
+        ["set_locale", P, "per-app, Android 13+ (API 33)", P, "applied on relaunch via launch args"],
+        ["set_network", F, "svc wifi/data, airplane-mode", N, "sim shares host net; use Network Link Conditioner"],
+        ["set_location", F, "emu geo fix (emulator only)", F, "simctl location set"],
+        ["set_font_scale", F, "system font_scale", F, "Dynamic Type content size"],
+        ["set_status_bar", P, "SystemUI demo mode (clock/battery/signal)", F, "rich override (time/battery/carrier/signal)"],
+        ["push_notification", N, "needs FCM server key + token", F, "simctl push (inject APNs payload)"],
+        ["set_conditions (presets)", F, "applies the above, gated per condition", F, "applies the above, gated per condition"],
+        ["__Diagnostics__"],
+        ["get_logs (+ crash/ANR)", F, "logcat", F, "simctl spawn log"],
+        ["a11y_audit", F, "heuristic over hierarchy", F, "heuristic over hierarchy"],
+        ["network capture (start/requests/stop)", P, "Frida OkHttp hook (debuggable + frida-server)", P, "mitmproxy + simctl-trusted CA + macOS proxy (pinning blocks; NSURLSession hook planned)"],
+        ["__Authored flows__"],
+        ["run_flow", F, "local flow execution", F, "local flow execution"],
+        ["cheat_sheet", F, "flow-syntax guidance", F, "flow-syntax guidance"],
+        ["__Session recording__"],
+        ["start/stop_recording, export_flow, export_report", F, "platform-agnostic", F, "platform-agnostic"],
+      ];
+      document.getElementById("matrix").innerHTML =
+        "<tr><th>Tool</th><th>Android</th><th>iOS</th></tr>" +
+        matrix.map((row) => {
+          if (row.length === 1) return `<tr class="cat"><td colspan="3">${row[0].replace(/__/g, "")}</td></tr>`;
+          const [tool, aL, aN, iL, iN] = row;
+          return `<tr><td class="tool">${tool}</td>${cell(aL, aN)}${cell(iL, iN)}</tr>`;
+        }).join("");
+
+      // ---- Basic operations (everyday tools) ----
+      const basic = [
+        ["list_devices", "List local Android & iOS devices with id, platform, OS, state. Start here for a device_id."],
+        ["inspect_screen", "Compact JSON hierarchy with stable element ids; target by id / text / resource-id / accessibility."],
+        ["tap / long_press", "Tap by selector or coordinates; returns the resulting screen (act + observe)."],
+        ["input_text", "Type into the focused field (optionally focus a field first)."],
+        ["press_key", "Press a hardware/system key — back, enter, home, …"],
+        ["swipe", "Swipe by direction or between two points (scroll lists, dismiss sheets)."],
+        ["wait_for", "Poll until an element is visible / not-visible, or timeout — replaces fixed sleeps."],
+        ["assert", "Clean pass/fail that an element is visible / not visible."],
+        ["find_elements / find_text", "Search the current screen by query; find_text OCRs for text the a11y tree misses."],
+        ["take_screenshot", "PNG of the current screen when you need pixels."],
+      ];
+      document.getElementById("basic").innerHTML =
+        "<tr><th>Tool</th><th>What it does</th></tr>" +
+        basic.map(([t, d]) => `<tr><td class="tool">${t}</td><td>${d}</td></tr>`).join("");
+
+      // ---- Full tool reference ----
+      const tools = [
+        ["list_devices", "List local Android & iOS devices with id, platform, OS, state."],
+        ["device_capabilities", "Report which actions a device supports (full/partial/unavailable) + backend."],
+        ["inspect_screen", "Compact JSON hierarchy with stable element ids; target by id/text/resource-id."],
+        ["take_screenshot", "PNG of the current screen."],
+        ["tap / long_press", "Tap by element selector or coordinates; returns the resulting screen (act+observe)."],
+        ["input_text", "Type into the focused field; optionally focus a field first."],
+        ["press_key", "Press a hardware/system key (back, enter, home, …)."],
+        ["swipe", "Swipe by direction or between two points."],
+        ["assert", "Assert an element is visible / not visible (no polling)."],
+        ["wait_for", "Poll until an element is visible / not visible, or timeout — replaces fixed sleeps."],
+        ["find_elements", "Search the current screen for elements matching a query."],
+        ["find_text", "OCR the screenshot to locate on-screen text (pixel boxes) the a11y tree misses — styled buttons, canvas/Flutter/games, WebViews. Tap via tap{text, ocr:true}."],
+        ["launch_app / stop_app", "Launch (optionally clearing state) or terminate an app."],
+        ["clear_app_state", "Reset app state."],
+        ["open_deeplink", "Open a deep / universal link URL."],
+        ["set_permission", "Grant or revoke a runtime permission."],
+        ["set_appearance", "Light / dark mode."],
+        ["set_orientation", "Portrait / landscape / upside-down."],
+        ["set_locale", "App locale (BCP-47)."],
+        ["set_network", "Toggle wifi / cellular / airplane mode."],
+        ["set_location", "Simulated GPS coordinates."],
+        ["set_font_scale", "Text size for accessibility testing."],
+        ["set_status_bar", "Override status bar (time/battery/signal) for clean screenshots."],
+        ["set_conditions", "Apply many device conditions at once / a named preset (offline, accessibility, screenshot, dark, international, reset)."],
+        ["push_notification", "Deliver a push notification (iOS APNs payload)."],
+        ["get_logs", "Recent device logs with automatic crash & ANR detection."],
+        ["a11y_audit", "Accessibility audit of the current screen."],
+        ["network_start / network_requests / network_clear / network_stop", "Capture decrypted HTTP from a debug app (Android: Frida + OkHttp hook; iOS: mitmproxy + trusted CA), filtered to specific endpoints. See NETWORK.md."],
+        ["run_flow", "Run an authored flow locally (inline YAML, files, or directory)."],
+        ["cheat_sheet", "Flow-syntax guidance for writing / exporting flows."],
+        ["start_recording / stop_recording", "Record an ad-hoc session (set report:true for per-step screenshots)."],
+        ["export_flow", "Export the recorded session as a replayable Maestro flow + report."],
+        ["export_report", "Self-contained HTML report: screenshot timeline + flow + logs + captured network."],
+      ];
+      document.getElementById("tools").innerHTML =
+        "<tr><th>Tool</th><th>Description</th></tr>" +
+        tools.map(([t, d]) => `<tr><td class="tool">${t}</td><td>${d}</td></tr>`).join("");
+
+      // ---- Upcoming features: [feature, status, note] ----
+      const upcoming = [
+        ["__Loop & inspection__"],
+        ["Idle / animation settling", PLAN, "Wait for the UI to stop animating before returning state, so you never act on a mid-transition screen."],
+        ["Token-budgeted inspect", LATER, "max_depth / interactive-only filter for very dense screens."],
+        ["Semantic targeting", LATER, "Rank elements by an embedding/LLM match to a natural-language description (\"the checkout button\")."],
+        ["__Assertions & state__"],
+        ["Richer assertions + network-idle waits", PLAN, "text-equals, element-count, enabled/checked/selected, \"wait for no spinners\"."],
+        ["Process-death / restoration testing", PLAN, "Background, kill the process, relaunch, assert state restored — a classic Android bug class."],
+        ["Time / clipboard / data seeding", PLAN, "Clock control for time-dependent UI; clipboard get/set; prefill defaults / content providers."],
+        ["__Diagnostics & quality__"],
+        ["Color-contrast & text-size a11y", NEXT, "Sample screenshot pixels at element bounds to compute WCAG contrast — the one a11y check that needs pixels."],
+        ["Visual regression", NEXT, "Capture/approve baseline screenshots and perceptual-diff against them (status-bar overrides already help stabilize)."],
+        ["Performance signals", PLAN, "Cold/warm start time, frame jank (gfxinfo), memory (meminfo) captured alongside a session."],
+        ["Video capture", PLAN, "Record the session (screenrecord / simctl recordVideo) and attach to the report for bug tickets."],
+        ["__Network & coverage__"],
+        ["Response stubbing", PLAN, "Rewrite/mizzle responses in-flight to drive error and edge-case states."],
+        ["iOS NSURLSession hook + Cronet", PLAN, "Frida hook for pinned iOS apps and Android Cronet stacks, beyond OkHttp/mitmproxy."],
+        ["Icon / template matching", PLAN, "Locate non-text controls (icons) by template, extending the OCR fallback."],
+        ["Multi-device / matrix runs", LATER, "Drive the same session across OS versions / form factors in parallel and diff outcomes."],
+      ];
+      document.getElementById("upcoming").innerHTML =
+        "<tr><th>Feature</th><th>Status</th><th>What it adds</th></tr>" +
+        upcoming.map((row) => {
+          if (row.length === 1) return `<tr class="cat"><td colspan="3">${row[0].replace(/__/g, "")}</td></tr>`;
+          const [feat, status, note] = row;
+          const [, label, cls] = status;
+          return `<tr><td class="tool">${feat}</td><td><span class="badge ${cls}">${label}</span></td><td>${note}</td></tr>`;
+        }).join("");
+    </script>
+  </body>
+</html>
