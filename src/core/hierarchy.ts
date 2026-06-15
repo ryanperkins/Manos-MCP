@@ -26,8 +26,10 @@ export interface RawElement {
 
 /** Strip volatile content (digits, times) so ids survive counters/clocks. */
 function normalizeText(text?: string): string {
-  if (!text) return "";
-  return text
+  // Coerce defensively: some backends (idb) can hand us a non-string label/value.
+  const s = text == null ? "" : String(text);
+  if (!s) return "";
+  return s
     .replace(/\d+/g, "#")
     .replace(/\s+/g, " ")
     .trim()

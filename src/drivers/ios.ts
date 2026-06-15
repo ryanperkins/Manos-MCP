@@ -544,8 +544,10 @@ export class IosDriver implements Driver {
 // --- idb parsing helpers ---
 
 interface IdbElement {
-  AXLabel?: string;
-  AXValue?: string;
+  // idb emits these as a string most of the time, but for some controls
+  // (sliders, switches, steppers) AXValue/AXLabel come back as a number or bool.
+  AXLabel?: string | number | boolean | null;
+  AXValue?: string | number | boolean | null;
   AXUniqueId?: string;
   type?: string;
   role?: string;
@@ -577,15 +579,22 @@ function parseIdbElements(out: string): IdbElement[] {
   return elements;
 }
 
+/** idb's AXLabel/AXValue may be a string, number, or bool — coerce to a trimmed string. */
+function idbStr(v: string | number | boolean | null | undefined): string | undefined {
+  if (v == null) return undefined;
+  const s = typeof v === "string" ? v : String(v);
+  return s.trim() || undefined;
+}
+
 function idbElementToRaw(e: IdbElement): RawElement | null {
   const f = e.frame;
   if (!f) return null;
   if (f.width <= 0 || f.height <= 0) return null;
   return {
     cls: e.type ?? e.role ?? e.role_description,
-    text: e.AXLabel || undefined,
-    accessibility: e.AXLabel || undefined,
-    value: e.AXValue || undefined,
+    text: idbStr(e.AXLabel),
+    accessibility: idbStr(e.AXLabel),
+    value: idbStr(e.AXValue),
     bounds: {
       x: Math.round(f.x),
       y: Math.round(f.y),

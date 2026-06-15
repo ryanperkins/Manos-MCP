@@ -55,6 +55,14 @@ test("stable id ignores volatile digits in text", () => {
   assert.equal(s1.flat[0].id, s2.flat[0].id, "id should be stable despite the number change");
 });
 
+test("finalizeScreen tolerates non-string text (idb numeric labels)", () => {
+  // idb can emit AXLabel/AXValue as a number/bool for sliders/switches; the
+  // stable-id path called text.replace and crashed. Must coerce, not throw.
+  const screen = makeScreen([el({ cls: "Slider", text: 42, accessibility: true })]);
+  assert.equal(screen.flat.length, 1);
+  assert.ok(screen.flat[0].id, "id computed without throwing on non-string text");
+});
+
 test("toCompactJson emits abbreviated keys + bounds tuple", () => {
   const screen = makeScreen([el({ cls: "Button", text: "Login", clickable: true })]);
   const compact = toCompactJson(screen);
