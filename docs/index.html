@@ -69,8 +69,10 @@
       .tab-btn { background: transparent; border: 1px solid transparent; border-bottom: none; color: var(--muted); padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px 8px 0 0; font-family: inherit; }
       .tab-btn:hover { color: var(--text); }
       .tab-btn[aria-selected="true"] { color: var(--text); background: var(--panel); border-color: var(--border); position: relative; top: 1px; }
-      .tab-panel { display: none; background: var(--panel); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; padding: 16px; }
-      .tab-panel.active { display: block; }
+      /* Panels show stacked without JS; .tabs.js (added at runtime) enables tab switching. */
+      .tab-panel { display: block; background: var(--panel); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; padding: 16px; margin-bottom: 4px; }
+      .tabs.js .tab-panel { display: none; margin-bottom: 0; }
+      .tabs.js .tab-panel.active { display: block; }
       .tab-panel pre { margin: 0 0 8px; }
       .tab-panel p { margin: 0 0 8px; }
       .tab-panel p:last-child, .tab-panel pre:last-child { margin-bottom: 0; }
@@ -229,7 +231,52 @@ transport: stdio</pre>
         tools, and each action can return the resulting screen so you rarely call <code>inspect_screen</code> twice in a row.
       </p>
 
-      <table id="basic"></table>
+      <table id="basic">
+        <tr>
+        <th>Tool</th>
+        <th>What it does</th>
+        </tr>
+        <tr>
+        <td class="tool">list_devices</td>
+        <td>List local Android & iOS devices with id, platform, OS, state. Start here for a device_id.</td>
+        </tr>
+        <tr>
+        <td class="tool">inspect_screen</td>
+        <td>Compact JSON hierarchy with stable element ids; target by id / text / resource-id / accessibility.</td>
+        </tr>
+        <tr>
+        <td class="tool">tap / long_press</td>
+        <td>Tap by selector or coordinates; returns the resulting screen (act + observe).</td>
+        </tr>
+        <tr>
+        <td class="tool">input_text</td>
+        <td>Type into the focused field (optionally focus a field first).</td>
+        </tr>
+        <tr>
+        <td class="tool">press_key</td>
+        <td>Press a hardware/system key — back, enter, home, …</td>
+        </tr>
+        <tr>
+        <td class="tool">swipe</td>
+        <td>Swipe by direction or between two points (scroll lists, dismiss sheets).</td>
+        </tr>
+        <tr>
+        <td class="tool">wait_for</td>
+        <td>Poll until an element is visible / not-visible, or timeout — replaces fixed sleeps.</td>
+        </tr>
+        <tr>
+        <td class="tool">assert</td>
+        <td>Clean pass/fail that an element is visible / not visible.</td>
+        </tr>
+        <tr>
+        <td class="tool">find_elements / find_text</td>
+        <td>Search the current screen by query; find_text OCRs for text the a11y tree misses.</td>
+        </tr>
+        <tr>
+        <td class="tool">take_screenshot</td>
+        <td>PNG of the current screen when you need pixels.</td>
+        </tr>
+      </table>
 
       <h3>A typical loop</h3>
       <p class="note">Sign in, then wait for the landing screen — five calls, each act returning what changed:</p>
@@ -262,7 +309,328 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
         <span class="pill"><span class="badge b-partial">PARTIAL</span> &nbsp;works with caveats / extra setup</span>
         <span class="pill"><span class="badge b-none">N/A</span> &nbsp;not feasible on this platform</span>
       </div>
-      <table id="matrix"></table>
+      <table id="matrix">
+        <tr>
+        <th>Tool</th>
+        <th>Android</th>
+        <th>iOS</th>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Inspection & interaction</td>
+        </tr>
+        <tr>
+        <td class="tool">inspect_screen</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">uiautomator → warm maestro session → cold CLI</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">idb, or warm maestro session</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">take_screenshot</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">screencap</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl io</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">tap / long_press</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">adb input</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">idb (full); maestro needs launch_app first</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">input_text</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">adb input text</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">idb (full); maestro fallback</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">swipe</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">adb input swipe</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">idb (full); maestro fallback</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">press_key</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">rich keyevents</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">limited keys (enter/delete/tab/home/lock/siri)</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">find_text (OCR)</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">Apple Vision / Tesseract</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">Apple Vision / Tesseract</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">assert / wait_for / find_elements</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">built on inspect</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">built on inspect</div>
+        </td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">App lifecycle & state</td>
+        </tr>
+        <tr>
+        <td class="tool">launch_app / stop_app</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">am / monkey</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl launch/terminate</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">clear_app_state</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">pm clear — true data wipe</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">resets permissions; full wipe needs reinstall</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">open_deeplink</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">am start VIEW</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl openurl</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_permission</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">pm grant/revoke</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl privacy</div>
+        </td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Device conditions</td>
+        </tr>
+        <tr>
+        <td class="tool">set_appearance</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">cmd uimode night</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl ui appearance</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_orientation</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">settings user_rotation</div>
+        </td>
+        <td>
+        <span class="badge b-none">N/A</span>
+        <div class="note">no CLI; rotate via Simulator menu (Cmd+←/→)</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_locale</td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">per-app, Android 13+ (API 33)</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">applied on relaunch via launch args</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_network</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">svc wifi/data, airplane-mode</div>
+        </td>
+        <td>
+        <span class="badge b-none">N/A</span>
+        <div class="note">sim shares host net; use Network Link Conditioner</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_location</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">emu geo fix (emulator only)</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl location set</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_font_scale</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">system font_scale</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">Dynamic Type content size</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_status_bar</td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">SystemUI demo mode (clock/battery/signal)</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">rich override (time/battery/carrier/signal)</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">push_notification</td>
+        <td>
+        <span class="badge b-none">N/A</span>
+        <div class="note">needs FCM server key + token</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl push (inject APNs payload)</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">set_conditions (presets)</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">applies the above, gated per condition</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">applies the above, gated per condition</div>
+        </td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Diagnostics</td>
+        </tr>
+        <tr>
+        <td class="tool">get_logs (+ crash/ANR)</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">logcat</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">simctl spawn log</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">a11y_audit</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">heuristic over hierarchy</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">heuristic over hierarchy</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">network capture (start/requests/stop)</td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">Frida OkHttp hook (debuggable + frida-server)</div>
+        </td>
+        <td>
+        <span class="badge b-partial">PARTIAL</span>
+        <div class="note">mitmproxy + simctl-trusted CA + macOS proxy (pinning blocks; NSURLSession hook planned)</div>
+        </td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Authored flows</td>
+        </tr>
+        <tr>
+        <td class="tool">run_flow</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">local flow execution</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">local flow execution</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="tool">cheat_sheet</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">flow-syntax guidance</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">flow-syntax guidance</div>
+        </td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Session recording</td>
+        </tr>
+        <tr>
+        <td class="tool">start/stop_recording, export_flow, export_report</td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">platform-agnostic</div>
+        </td>
+        <td>
+        <span class="badge b-full">FULL</span>
+        <div class="note">platform-agnostic</div>
+        </td>
+        </tr>
+      </table>
       <p class="note">Capabilities are reported live per device by the <code>device_capabilities</code> tool and the <code>doctor</code> command, including the active backend — the agent never has to guess what a platform supports.</p>
 
       <!-- ===================== ADVANCED ===================== -->
@@ -334,7 +702,144 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
 
       <!-- ===================== TOOL REFERENCE ===================== -->
       <h2 id="reference">Tool reference</h2>
-      <table id="tools"></table>
+      <table id="tools">
+        <tr>
+        <th>Tool</th>
+        <th>Description</th>
+        </tr>
+        <tr>
+        <td class="tool">list_devices</td>
+        <td>List local Android & iOS devices with id, platform, OS, state.</td>
+        </tr>
+        <tr>
+        <td class="tool">device_capabilities</td>
+        <td>Report which actions a device supports (full/partial/unavailable) + backend.</td>
+        </tr>
+        <tr>
+        <td class="tool">inspect_screen</td>
+        <td>Compact JSON hierarchy with stable element ids; target by id/text/resource-id.</td>
+        </tr>
+        <tr>
+        <td class="tool">take_screenshot</td>
+        <td>PNG of the current screen.</td>
+        </tr>
+        <tr>
+        <td class="tool">tap / long_press</td>
+        <td>Tap by element selector or coordinates; returns the resulting screen (act+observe).</td>
+        </tr>
+        <tr>
+        <td class="tool">input_text</td>
+        <td>Type into the focused field; optionally focus a field first.</td>
+        </tr>
+        <tr>
+        <td class="tool">press_key</td>
+        <td>Press a hardware/system key (back, enter, home, …).</td>
+        </tr>
+        <tr>
+        <td class="tool">swipe</td>
+        <td>Swipe by direction or between two points.</td>
+        </tr>
+        <tr>
+        <td class="tool">assert</td>
+        <td>Assert an element is visible / not visible (no polling).</td>
+        </tr>
+        <tr>
+        <td class="tool">wait_for</td>
+        <td>Poll until an element is visible / not visible, or timeout — replaces fixed sleeps.</td>
+        </tr>
+        <tr>
+        <td class="tool">find_elements</td>
+        <td>Search the current screen for elements matching a query.</td>
+        </tr>
+        <tr>
+        <td class="tool">find_text</td>
+        <td>OCR the screenshot to locate on-screen text (pixel boxes) the a11y tree misses — styled buttons, canvas/Flutter/games, WebViews. Tap via tap{text, ocr:true}.</td>
+        </tr>
+        <tr>
+        <td class="tool">launch_app / stop_app</td>
+        <td>Launch (optionally clearing state) or terminate an app.</td>
+        </tr>
+        <tr>
+        <td class="tool">clear_app_state</td>
+        <td>Reset app state.</td>
+        </tr>
+        <tr>
+        <td class="tool">open_deeplink</td>
+        <td>Open a deep / universal link URL.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_permission</td>
+        <td>Grant or revoke a runtime permission.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_appearance</td>
+        <td>Light / dark mode.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_orientation</td>
+        <td>Portrait / landscape / upside-down.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_locale</td>
+        <td>App locale (BCP-47).</td>
+        </tr>
+        <tr>
+        <td class="tool">set_network</td>
+        <td>Toggle wifi / cellular / airplane mode.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_location</td>
+        <td>Simulated GPS coordinates.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_font_scale</td>
+        <td>Text size for accessibility testing.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_status_bar</td>
+        <td>Override status bar (time/battery/signal) for clean screenshots.</td>
+        </tr>
+        <tr>
+        <td class="tool">set_conditions</td>
+        <td>Apply many device conditions at once / a named preset (offline, accessibility, screenshot, dark, international, reset).</td>
+        </tr>
+        <tr>
+        <td class="tool">push_notification</td>
+        <td>Deliver a push notification (iOS APNs payload).</td>
+        </tr>
+        <tr>
+        <td class="tool">get_logs</td>
+        <td>Recent device logs with automatic crash & ANR detection.</td>
+        </tr>
+        <tr>
+        <td class="tool">a11y_audit</td>
+        <td>Accessibility audit of the current screen.</td>
+        </tr>
+        <tr>
+        <td class="tool">network_start / network_requests / network_clear / network_stop</td>
+        <td>Capture decrypted HTTP from a debug app (Android: Frida + OkHttp hook; iOS: mitmproxy + trusted CA), filtered to specific endpoints. See NETWORK.md.</td>
+        </tr>
+        <tr>
+        <td class="tool">run_flow</td>
+        <td>Run an authored flow locally (inline YAML, files, or directory).</td>
+        </tr>
+        <tr>
+        <td class="tool">cheat_sheet</td>
+        <td>Flow-syntax guidance for writing / exporting flows.</td>
+        </tr>
+        <tr>
+        <td class="tool">start_recording / stop_recording</td>
+        <td>Record an ad-hoc session (set report:true for per-step screenshots).</td>
+        </tr>
+        <tr>
+        <td class="tool">export_flow</td>
+        <td>Export the recorded session as a replayable Maestro flow + report.</td>
+        </tr>
+        <tr>
+        <td class="tool">export_report</td>
+        <td>Self-contained HTML report: screenshot timeline + flow + logs + captured network.</td>
+        </tr>
+      </table>
 
       <!-- ===================== UPCOMING ===================== -->
       <h2 id="upcoming">Upcoming features</h2>
@@ -344,7 +849,123 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
         <span class="pill"><span class="badge b-planned">PLANNED</span> &nbsp;on the roadmap</span>
         <span class="pill"><span class="badge b-later">EXPLORING</span> &nbsp;ideas / scale</span>
       </div>
-      <table id="upcoming"></table>
+      <table id="upcoming">
+        <tr>
+        <th>Feature</th>
+        <th>Status</th>
+        <th>What it adds</th>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Loop & inspection</td>
+        </tr>
+        <tr>
+        <td class="tool">Idle / animation settling</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Wait for the UI to stop animating before returning state, so you never act on a mid-transition screen.</td>
+        </tr>
+        <tr>
+        <td class="tool">Token-budgeted inspect</td>
+        <td>
+        <span class="badge b-later">EXPLORING</span>
+        </td>
+        <td>max_depth / interactive-only filter for very dense screens.</td>
+        </tr>
+        <tr>
+        <td class="tool">Semantic targeting</td>
+        <td>
+        <span class="badge b-later">EXPLORING</span>
+        </td>
+        <td>Rank elements by an embedding/LLM match to a natural-language description ("the checkout button").</td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Assertions & state</td>
+        </tr>
+        <tr>
+        <td class="tool">Richer assertions + network-idle waits</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>text-equals, element-count, enabled/checked/selected, "wait for no spinners".</td>
+        </tr>
+        <tr>
+        <td class="tool">Process-death / restoration testing</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Background, kill the process, relaunch, assert state restored — a classic Android bug class.</td>
+        </tr>
+        <tr>
+        <td class="tool">Time / clipboard / data seeding</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Clock control for time-dependent UI; clipboard get/set; prefill defaults / content providers.</td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Diagnostics & quality</td>
+        </tr>
+        <tr>
+        <td class="tool">Color-contrast & text-size a11y</td>
+        <td>
+        <span class="badge b-next">NEXT</span>
+        </td>
+        <td>Sample screenshot pixels at element bounds to compute WCAG contrast — the one a11y check that needs pixels.</td>
+        </tr>
+        <tr>
+        <td class="tool">Visual regression</td>
+        <td>
+        <span class="badge b-next">NEXT</span>
+        </td>
+        <td>Capture/approve baseline screenshots and perceptual-diff against them (status-bar overrides already help stabilize).</td>
+        </tr>
+        <tr>
+        <td class="tool">Performance signals</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Cold/warm start time, frame jank (gfxinfo), memory (meminfo) captured alongside a session.</td>
+        </tr>
+        <tr>
+        <td class="tool">Video capture</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Record the session (screenrecord / simctl recordVideo) and attach to the report for bug tickets.</td>
+        </tr>
+        <tr class="cat">
+        <td colspan="3">Network & coverage</td>
+        </tr>
+        <tr>
+        <td class="tool">Response stubbing</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Rewrite/mizzle responses in-flight to drive error and edge-case states.</td>
+        </tr>
+        <tr>
+        <td class="tool">iOS NSURLSession hook + Cronet</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Frida hook for pinned iOS apps and Android Cronet stacks, beyond OkHttp/mitmproxy.</td>
+        </tr>
+        <tr>
+        <td class="tool">Icon / template matching</td>
+        <td>
+        <span class="badge b-planned">PLANNED</span>
+        </td>
+        <td>Locate non-text controls (icons) by template, extending the OCR fallback.</td>
+        </tr>
+        <tr>
+        <td class="tool">Multi-device / matrix runs</td>
+        <td>
+        <span class="badge b-later">EXPLORING</span>
+        </td>
+        <td>Drive the same session across OS versions / form factors in parallel and diff outcomes.</td>
+        </tr>
+      </table>
 
       <footer>
         Generated docs for manos v0.1.0 ·
@@ -353,15 +974,9 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
     </div>
 
     <script>
-      const F = ["full", "FULL", "b-full"], P = ["partial", "PARTIAL", "b-partial"], N = ["none", "N/A", "b-none"];
-      const NEXT = ["next", "NEXT", "b-next"], PLAN = ["planned", "PLANNED", "b-planned"], LATER = ["later", "EXPLORING", "b-later"];
-      function cell(level, note) {
-        const [, label, cls] = level;
-        return `<td><span class="badge ${cls}">${label}</span>${note ? `<div class="note">${note}</div>` : ""}</td>`;
-      }
-
-      // ---- Tabs ----
+      // Tabs are the only interactive piece; the tables above are static HTML.
       document.querySelectorAll(".tabs").forEach((tabs) => {
+        tabs.classList.add("js"); // enable tab switching (panels stack without JS)
         const btns = [...tabs.querySelectorAll(".tab-btn")];
         const panels = [...tabs.querySelectorAll(".tab-panel")];
         btns.forEach((btn, i) =>
@@ -373,137 +988,6 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
           }),
         );
       });
-
-      // ---- Capability matrix: [tool, androidLevel, androidNote, iosLevel, iosNote] ----
-      const matrix = [
-        ["__Inspection & interaction__"],
-        ["inspect_screen", F, "uiautomator → warm maestro session → cold CLI", F, "idb, or warm maestro session"],
-        ["take_screenshot", F, "screencap", F, "simctl io"],
-        ["tap / long_press", F, "adb input", P, "idb (full); maestro needs launch_app first"],
-        ["input_text", F, "adb input text", P, "idb (full); maestro fallback"],
-        ["swipe", F, "adb input swipe", P, "idb (full); maestro fallback"],
-        ["press_key", F, "rich keyevents", P, "limited keys (enter/delete/tab/home/lock/siri)"],
-        ["find_text (OCR)", F, "Apple Vision / Tesseract", F, "Apple Vision / Tesseract"],
-        ["assert / wait_for / find_elements", F, "built on inspect", F, "built on inspect"],
-        ["__App lifecycle & state__"],
-        ["launch_app / stop_app", F, "am / monkey", F, "simctl launch/terminate"],
-        ["clear_app_state", F, "pm clear — true data wipe", P, "resets permissions; full wipe needs reinstall"],
-        ["open_deeplink", F, "am start VIEW", F, "simctl openurl"],
-        ["set_permission", F, "pm grant/revoke", F, "simctl privacy"],
-        ["__Device conditions__"],
-        ["set_appearance", F, "cmd uimode night", F, "simctl ui appearance"],
-        ["set_orientation", F, "settings user_rotation", N, "no CLI; rotate via Simulator menu (Cmd+←/→)"],
-        ["set_locale", P, "per-app, Android 13+ (API 33)", P, "applied on relaunch via launch args"],
-        ["set_network", F, "svc wifi/data, airplane-mode", N, "sim shares host net; use Network Link Conditioner"],
-        ["set_location", F, "emu geo fix (emulator only)", F, "simctl location set"],
-        ["set_font_scale", F, "system font_scale", F, "Dynamic Type content size"],
-        ["set_status_bar", P, "SystemUI demo mode (clock/battery/signal)", F, "rich override (time/battery/carrier/signal)"],
-        ["push_notification", N, "needs FCM server key + token", F, "simctl push (inject APNs payload)"],
-        ["set_conditions (presets)", F, "applies the above, gated per condition", F, "applies the above, gated per condition"],
-        ["__Diagnostics__"],
-        ["get_logs (+ crash/ANR)", F, "logcat", F, "simctl spawn log"],
-        ["a11y_audit", F, "heuristic over hierarchy", F, "heuristic over hierarchy"],
-        ["network capture (start/requests/stop)", P, "Frida OkHttp hook (debuggable + frida-server)", P, "mitmproxy + simctl-trusted CA + macOS proxy (pinning blocks; NSURLSession hook planned)"],
-        ["__Authored flows__"],
-        ["run_flow", F, "local flow execution", F, "local flow execution"],
-        ["cheat_sheet", F, "flow-syntax guidance", F, "flow-syntax guidance"],
-        ["__Session recording__"],
-        ["start/stop_recording, export_flow, export_report", F, "platform-agnostic", F, "platform-agnostic"],
-      ];
-      document.getElementById("matrix").innerHTML =
-        "<tr><th>Tool</th><th>Android</th><th>iOS</th></tr>" +
-        matrix.map((row) => {
-          if (row.length === 1) return `<tr class="cat"><td colspan="3">${row[0].replace(/__/g, "")}</td></tr>`;
-          const [tool, aL, aN, iL, iN] = row;
-          return `<tr><td class="tool">${tool}</td>${cell(aL, aN)}${cell(iL, iN)}</tr>`;
-        }).join("");
-
-      // ---- Basic operations (everyday tools) ----
-      const basic = [
-        ["list_devices", "List local Android & iOS devices with id, platform, OS, state. Start here for a device_id."],
-        ["inspect_screen", "Compact JSON hierarchy with stable element ids; target by id / text / resource-id / accessibility."],
-        ["tap / long_press", "Tap by selector or coordinates; returns the resulting screen (act + observe)."],
-        ["input_text", "Type into the focused field (optionally focus a field first)."],
-        ["press_key", "Press a hardware/system key — back, enter, home, …"],
-        ["swipe", "Swipe by direction or between two points (scroll lists, dismiss sheets)."],
-        ["wait_for", "Poll until an element is visible / not-visible, or timeout — replaces fixed sleeps."],
-        ["assert", "Clean pass/fail that an element is visible / not visible."],
-        ["find_elements / find_text", "Search the current screen by query; find_text OCRs for text the a11y tree misses."],
-        ["take_screenshot", "PNG of the current screen when you need pixels."],
-      ];
-      document.getElementById("basic").innerHTML =
-        "<tr><th>Tool</th><th>What it does</th></tr>" +
-        basic.map(([t, d]) => `<tr><td class="tool">${t}</td><td>${d}</td></tr>`).join("");
-
-      // ---- Full tool reference ----
-      const tools = [
-        ["list_devices", "List local Android & iOS devices with id, platform, OS, state."],
-        ["device_capabilities", "Report which actions a device supports (full/partial/unavailable) + backend."],
-        ["inspect_screen", "Compact JSON hierarchy with stable element ids; target by id/text/resource-id."],
-        ["take_screenshot", "PNG of the current screen."],
-        ["tap / long_press", "Tap by element selector or coordinates; returns the resulting screen (act+observe)."],
-        ["input_text", "Type into the focused field; optionally focus a field first."],
-        ["press_key", "Press a hardware/system key (back, enter, home, …)."],
-        ["swipe", "Swipe by direction or between two points."],
-        ["assert", "Assert an element is visible / not visible (no polling)."],
-        ["wait_for", "Poll until an element is visible / not visible, or timeout — replaces fixed sleeps."],
-        ["find_elements", "Search the current screen for elements matching a query."],
-        ["find_text", "OCR the screenshot to locate on-screen text (pixel boxes) the a11y tree misses — styled buttons, canvas/Flutter/games, WebViews. Tap via tap{text, ocr:true}."],
-        ["launch_app / stop_app", "Launch (optionally clearing state) or terminate an app."],
-        ["clear_app_state", "Reset app state."],
-        ["open_deeplink", "Open a deep / universal link URL."],
-        ["set_permission", "Grant or revoke a runtime permission."],
-        ["set_appearance", "Light / dark mode."],
-        ["set_orientation", "Portrait / landscape / upside-down."],
-        ["set_locale", "App locale (BCP-47)."],
-        ["set_network", "Toggle wifi / cellular / airplane mode."],
-        ["set_location", "Simulated GPS coordinates."],
-        ["set_font_scale", "Text size for accessibility testing."],
-        ["set_status_bar", "Override status bar (time/battery/signal) for clean screenshots."],
-        ["set_conditions", "Apply many device conditions at once / a named preset (offline, accessibility, screenshot, dark, international, reset)."],
-        ["push_notification", "Deliver a push notification (iOS APNs payload)."],
-        ["get_logs", "Recent device logs with automatic crash & ANR detection."],
-        ["a11y_audit", "Accessibility audit of the current screen."],
-        ["network_start / network_requests / network_clear / network_stop", "Capture decrypted HTTP from a debug app (Android: Frida + OkHttp hook; iOS: mitmproxy + trusted CA), filtered to specific endpoints. See NETWORK.md."],
-        ["run_flow", "Run an authored flow locally (inline YAML, files, or directory)."],
-        ["cheat_sheet", "Flow-syntax guidance for writing / exporting flows."],
-        ["start_recording / stop_recording", "Record an ad-hoc session (set report:true for per-step screenshots)."],
-        ["export_flow", "Export the recorded session as a replayable Maestro flow + report."],
-        ["export_report", "Self-contained HTML report: screenshot timeline + flow + logs + captured network."],
-      ];
-      document.getElementById("tools").innerHTML =
-        "<tr><th>Tool</th><th>Description</th></tr>" +
-        tools.map(([t, d]) => `<tr><td class="tool">${t}</td><td>${d}</td></tr>`).join("");
-
-      // ---- Upcoming features: [feature, status, note] ----
-      const upcoming = [
-        ["__Loop & inspection__"],
-        ["Idle / animation settling", PLAN, "Wait for the UI to stop animating before returning state, so you never act on a mid-transition screen."],
-        ["Token-budgeted inspect", LATER, "max_depth / interactive-only filter for very dense screens."],
-        ["Semantic targeting", LATER, "Rank elements by an embedding/LLM match to a natural-language description (\"the checkout button\")."],
-        ["__Assertions & state__"],
-        ["Richer assertions + network-idle waits", PLAN, "text-equals, element-count, enabled/checked/selected, \"wait for no spinners\"."],
-        ["Process-death / restoration testing", PLAN, "Background, kill the process, relaunch, assert state restored — a classic Android bug class."],
-        ["Time / clipboard / data seeding", PLAN, "Clock control for time-dependent UI; clipboard get/set; prefill defaults / content providers."],
-        ["__Diagnostics & quality__"],
-        ["Color-contrast & text-size a11y", NEXT, "Sample screenshot pixels at element bounds to compute WCAG contrast — the one a11y check that needs pixels."],
-        ["Visual regression", NEXT, "Capture/approve baseline screenshots and perceptual-diff against them (status-bar overrides already help stabilize)."],
-        ["Performance signals", PLAN, "Cold/warm start time, frame jank (gfxinfo), memory (meminfo) captured alongside a session."],
-        ["Video capture", PLAN, "Record the session (screenrecord / simctl recordVideo) and attach to the report for bug tickets."],
-        ["__Network & coverage__"],
-        ["Response stubbing", PLAN, "Rewrite/mizzle responses in-flight to drive error and edge-case states."],
-        ["iOS NSURLSession hook + Cronet", PLAN, "Frida hook for pinned iOS apps and Android Cronet stacks, beyond OkHttp/mitmproxy."],
-        ["Icon / template matching", PLAN, "Locate non-text controls (icons) by template, extending the OCR fallback."],
-        ["Multi-device / matrix runs", LATER, "Drive the same session across OS versions / form factors in parallel and diff outcomes."],
-      ];
-      document.getElementById("upcoming").innerHTML =
-        "<tr><th>Feature</th><th>Status</th><th>What it adds</th></tr>" +
-        upcoming.map((row) => {
-          if (row.length === 1) return `<tr class="cat"><td colspan="3">${row[0].replace(/__/g, "")}</td></tr>`;
-          const [feat, status, note] = row;
-          const [, label, cls] = status;
-          return `<tr><td class="tool">${feat}</td><td><span class="badge ${cls}">${label}</span></td><td>${note}</td></tr>`;
-        }).join("");
     </script>
   </body>
 </html>
