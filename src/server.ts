@@ -1,9 +1,23 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { getContext } from "./tools/context.js";
 import { registerTools } from "./tools/register.js";
 
-export const SERVER_INFO = { name: "manos", version: "0.1.0" } as const;
+// Derive the version from package.json so the CLI banner and the MCP server
+// identity never drift from the published version. (dist/server.js → ../package.json)
+function readVersion(): string {
+  try {
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+    return JSON.parse(readFileSync(pkgPath, "utf8")).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+export const SERVER_INFO = { name: "manos", version: readVersion() } as const;
 
 export function createServer(): McpServer {
   const server = new McpServer(SERVER_INFO, {
