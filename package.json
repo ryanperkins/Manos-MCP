@@ -12,7 +12,7 @@
     "url": "https://github.com/ryanperkins/Manos-MCP/issues"
   },
   "bin": {
-    "manos": "./dist/cli.js"
+    "manos": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "files": [
