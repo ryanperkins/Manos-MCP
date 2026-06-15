@@ -219,7 +219,7 @@ export class AndroidDriver implements Driver {
     const cached = this.metrics.get(deviceId);
     if (cached) return cached;
     const [size, densityDpi] = await Promise.all([
-      this.screenSize(deviceId),
+      this.queryScreenSize(deviceId),
       this.screenDensity(deviceId),
     ]);
     const m = { ...size, densityDpi };
@@ -298,7 +298,13 @@ export class AndroidDriver implements Driver {
     };
   }
 
-  private async screenSize(deviceId: string): Promise<{ width: number; height: number }> {
+  /** Public: screen size in tap space (Android taps & the hierarchy are in pixels). */
+  async screenSize(deviceId: string): Promise<{ width: number; height: number }> {
+    const { width, height } = await this.screenMetrics(deviceId);
+    return { width, height };
+  }
+
+  private async queryScreenSize(deviceId: string): Promise<{ width: number; height: number }> {
     const out = (await this.shell(deviceId, ["wm", "size"])).stdout;
     // Prefer "Override size:" if present, else "Physical size:".
     const matches = [...out.matchAll(/(?:Physical|Override) size:\s*(\d+)x(\d+)/g)];

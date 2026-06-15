@@ -106,6 +106,30 @@ export function centerOfWord(w: OcrWord): { x: number; y: number } {
   return { x: Math.round(w.x + w.width / 2), y: Math.round(w.y + w.height / 2) };
 }
 
+/** Read a PNG's pixel dimensions from its IHDR header (no decode, no deps). */
+export function pngPixelSize(buf: Buffer): { width: number; height: number } | undefined {
+  // PNG = 8-byte signature, then IHDR: length(4) + "IHDR"(4) + width(4 BE) + height(4 BE).
+  if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return undefined;
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+/**
+ * Map OCR boxes from screenshot pixels into the tap/hierarchy coordinate space.
+ * `scale` is screenshot-pixels-per-coordinate-unit (1 on Android, the Retina
+ * factor — 2 or 3 — on iOS, where taps use logical points). A scale of 1 (or
+ * non-positive/NaN) returns the words unchanged.
+ */
+export function scaleOcrWords(words: OcrWord[], scale: number): OcrWord[] {
+  if (!(scale > 0) || Math.abs(scale - 1) < 1e-6) return words;
+  return words.map((w) => ({
+    ...w,
+    x: Math.round(w.x / scale),
+    y: Math.round(w.y / scale),
+    width: Math.round(w.width / scale),
+    height: Math.round(w.height / scale),
+  }));
+}
+
 /**
  * Find OCR runs matching a query (case-insensitive substring by default).
  * Also tries to match a multi-word query against a window of adjacent runs on

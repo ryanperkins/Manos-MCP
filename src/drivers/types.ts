@@ -159,6 +159,12 @@ export interface Driver {
   // --- Observe ---
   inspect(deviceId: string): Promise<Screen>;
   screenshot(deviceId: string): Promise<Buffer>; // PNG bytes
+  /**
+   * Screen size in the driver's tap/hierarchy coordinate space: pixels on
+   * Android, logical points on iOS. Used to map screenshot/OCR pixels into the
+   * space taps expect. `{ width: 0 }` means unknown (callers should no-op).
+   */
+  screenSize(deviceId: string): Promise<{ width: number; height: number }>;
 
   // --- Act ---
   tap(deviceId: string, x: number, y: number): Promise<void>;

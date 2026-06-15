@@ -16,6 +16,8 @@ const {
   parseTesseractTsv,
   findOcrText,
   centerOfWord,
+  pngPixelSize,
+  scaleOcrWords,
 } = await import(`${base}index.js`);
 
 function el(overrides) {
@@ -177,6 +179,27 @@ test("findOcrText matches substrings and stitches adjacent runs", () => {
   const stitched = findOcrText(words, "Pay and Reserve");
   assert.ok(stitched.length >= 1);
   assert.ok(stitched[0].text.toLowerCase().includes("pay and reserve"));
+});
+
+test("pngPixelSize reads dimensions from the IHDR header", () => {
+  // Minimal PNG header: 8-byte signature + IHDR length/type + 1206x2622 (iPhone 16 Pro px).
+  const buf = Buffer.alloc(24);
+  buf.writeUInt32BE(0x89504e47, 0); // \x89PNG signature start
+  buf.writeUInt32BE(1206, 16);
+  buf.writeUInt32BE(2622, 20);
+  assert.deepEqual(pngPixelSize(buf), { width: 1206, height: 2622 });
+  assert.equal(pngPixelSize(Buffer.from("not a png")), undefined);
+});
+
+test("scaleOcrWords maps pixels into tap space (iOS Retina ÷3), no-op at scale 1", () => {
+  const words = [{ text: "Not Now", x: 300, y: 1680, width: 112, height: 60, confidence: 1 }];
+  // iOS: 1206px screenshot / 402pt screen = 3x. Tap target should land in points.
+  const scaled = scaleOcrWords(words, 3);
+  assert.deepEqual([scaled[0].x, scaled[0].y, scaled[0].width, scaled[0].height], [100, 560, 37, 20]);
+  assert.deepEqual(centerOfWord(scaled[0]), { x: 119, y: 570 }); // matches the verified iOS tap point
+  // Android (1:1) and degenerate scales return the words untouched.
+  assert.equal(scaleOcrWords(words, 1), words);
+  assert.equal(scaleOcrWords(words, 0), words);
 });
 
 test("SessionRecorder records and exports a replayable flow", () => {

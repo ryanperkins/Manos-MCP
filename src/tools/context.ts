@@ -1,7 +1,15 @@
 import { DriverRegistry } from "../drivers/registry.js";
 import { SessionRecorder } from "../core/session.js";
 import { centerOf, diffScreens, findElements, toCompactJson } from "../core/hierarchy.js";
-import { centerOfWord, findOcrText, ocrEngine, ocrImage, type OcrWord } from "../core/ocr.js";
+import {
+  centerOfWord,
+  findOcrText,
+  ocrEngine,
+  ocrImage,
+  pngPixelSize,
+  scaleOcrWords,
+  type OcrWord,
+} from "../core/ocr.js";
 import type { Screen } from "../drivers/types.js";
 import type { Selector } from "../core/flow.js";
 
@@ -120,11 +128,36 @@ export class AppContext {
     };
   }
 
-  /** OCR the current screen and return all (optionally filtered) text runs. */
+  /**
+   * OCR the current screen and return all (optionally filtered) text runs, with
+   * coordinates mapped into the tap/hierarchy space. OCR runs on the screenshot
+   * (pixels), but taps and `inspect_screen` use the driver's coordinate space —
+   * pixels on Android (1:1), logical points on iOS (Retina ÷2/÷3). We match in
+   * pixel space (so adjacent-run stitching is unchanged) then scale the result,
+   * so an OCR-located target taps the right place on every platform.
+   */
   async ocrScreen(deviceId: string, query?: string): Promise<OcrWord[]> {
-    const png = await this.registry.driverFor(deviceId).screenshot(deviceId);
+    const driver = this.registry.driverFor(deviceId);
+    const png = await driver.screenshot(deviceId);
     const words = await ocrImage(png);
-    return query ? findOcrText(words, query) : words;
+    const matched = query ? findOcrText(words, query) : words;
+    return scaleOcrWords(matched, await this.ocrScale(deviceId, png, driver));
+  }
+
+  /** Screenshot-pixels per tap-space unit (1 on Android; Retina factor on iOS). */
+  private async ocrScale(
+    deviceId: string,
+    png: Buffer,
+    driver: ReturnType<DriverRegistry["driverFor"]>,
+  ): Promise<number> {
+    try {
+      const px = pngPixelSize(png);
+      const size = await driver.screenSize(deviceId);
+      if (px?.width && size.width) return px.width / size.width;
+    } catch {
+      /* unknown → no scaling */
+    }
+    return 1;
   }
 
   /** Locate `text` visually via OCR and return it as a tappable target. */

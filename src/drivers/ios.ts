@@ -97,6 +97,8 @@ export class IosDriver implements Driver {
   private maestroAvail: boolean | undefined;
   /** Last app launched on each device — needed for the Maestro action fallback. */
   private lastAppId = new Map<string, string>();
+  /** Cached screen size in points per device (for OCR pixel→point scaling). */
+  private readonly pointSize = new Map<string, { width: number; height: number }>();
 
   private simctl(args: string[], opts?: { timeoutMs?: number; allowNonZero?: boolean }) {
     return exec("xcrun", ["simctl", ...args], {
@@ -267,6 +269,27 @@ export class IosDriver implements Driver {
     } catch {
       return { width: 0, height: 0 };
     }
+  }
+
+  /**
+   * Public: screen size in tap space — logical points on iOS. Tries idb, then
+   * falls back to a Maestro hierarchy read (the same point space inspect uses)
+   * so OCR coordinate scaling works even without idb. Cached per device.
+   */
+  async screenSize(deviceId: string): Promise<{ width: number; height: number }> {
+    const cached = this.pointSize.get(deviceId);
+    if (cached) return cached;
+    let size = await this.screenSizePoints(deviceId);
+    if (!size.width && (await this.probeMaestro())) {
+      try {
+        const h = (await maestroSession.inspect(deviceId)) ?? (await maestroHierarchy(deviceId));
+        size = { width: h.width, height: h.height };
+      } catch {
+        /* leave {0,0}; OCR scaling no-ops */
+      }
+    }
+    if (size.width) this.pointSize.set(deviceId, size);
+    return size;
   }
 
   async screenshot(deviceId: string): Promise<Buffer> {

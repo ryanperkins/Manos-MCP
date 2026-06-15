@@ -9,4 +9,11 @@ export { SessionRecorder } from "./core/session.js";
 export { stepsToFlowYaml } from "./core/flow.js";
 export { applyConditions, resolveConditions, PRESETS } from "./core/conditions.js";
 export { buildReportHtml } from "./core/report.js";
-export { parseTesseractTsv, findOcrText, centerOfWord, ocrEngine } from "./core/ocr.js";
+export {
+  parseTesseractTsv,
+  findOcrText,
+  centerOfWord,
+  ocrEngine,
+  pngPixelSize,
+  scaleOcrWords,
+} from "./core/ocr.js";
