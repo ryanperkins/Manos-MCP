@@ -77,6 +77,9 @@ class MaestroSession {
     if (this.starting) return this.starting;
     this.starting = (async () => {
       try {
+        // Snapshot any pre-existing warm JVMs so we can tell ours apart from a
+        // `maestro mcp` server that another Manos process may be running.
+        const preexisting = new Set(warmJvmPids());
         const transport = new StdioClientTransport({
           command: "maestro",
           args: ["mcp"],
@@ -86,9 +89,16 @@ class MaestroSession {
         await client.connect(transport);
         this.client = client;
         this.transport = transport;
-        // Synchronously kill the child JVM on exit — an async close() races
-        // process.exit() and would orphan the maestro process.
-        registerChildCleanup(() => transport.pid);
+        // Synchronously kill our warm JVM(s) on exit — an async close() races
+        // process.exit() and would orphan them. We hand the cleanup the snapshot
+        // of pre-existing JVMs (not a point-in-time capture of "our" pids): it
+        // recomputes the signature-matched set at exit and kills everything that
+        // appeared during our session. `maestro mcp` spawns a SECOND JVM (the
+        // device/simulator backend) shortly after connect() resolves, so a
+        // one-shot capture here misses it; recomputing at exit catches both.
+        // Signature-tracked because the macOS disclaimer shim reparents the JVMs
+        // to launchd, breaking the transport.pid tree (see below).
+        registerChildCleanup(() => transport.pid, preexisting);
         return client;
       } catch {
         this.dead = true;
@@ -168,6 +178,25 @@ class MaestroSession {
 export const maestroSession = new MaestroSession();
 
 /**
+ * The java command line of the warm `maestro mcp` server. Stable across maestro
+ * versions (the Kotlin entrypoint + the `mcp` subcommand) and specific enough to
+ * never match a cold `maestro test` run or the disclaimer/shell wrapper.
+ */
+const WARM_JVM_SIGNATURE = "maestro.cli.AppKt mcp";
+
+/** PIDs whose full command line matches the warm-JVM signature. */
+function warmJvmPids(): number[] {
+  try {
+    const out = execSync(`pgrep -f '${WARM_JVM_SIGNATURE}'`, {
+      stdio: ["ignore", "pipe", "ignore"],
+    }).toString();
+    return out.split("\n").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
+  } catch {
+    return []; // pgrep exits non-zero when nothing matches
+  }
+}
+
+/**
  * Recursively SIGKILL a pid and all descendants. maestro mcp spawns a child
  * JVM which spawns a `simulator-server` (video encoder for the viewer); killing
  * only the top pid would orphan the grandchild, so we walk the tree (pgrep -P)
@@ -189,13 +218,37 @@ function killTree(pid: number): void {
   }
 }
 
+/**
+ * Kill a recorded JVM pid (and its tree) only if it still carries the warm-JVM
+ * signature. The signature check guards against the (tiny) window where the pid
+ * was recycled for an unrelated process between session end and this handler.
+ */
+function killWarmJvm(pid: number): void {
+  let cmd = "";
+  try {
+    cmd = execSync(`ps -p ${pid} -o command=`, { stdio: ["ignore", "pipe", "ignore"] }).toString();
+  } catch {
+    return; // already gone (ps exits non-zero)
+  }
+  if (cmd.includes(WARM_JVM_SIGNATURE)) killTree(pid);
+}
+
 let cleanupRegistered = false;
-function registerChildCleanup(getPid: () => number | null): void {
+function registerChildCleanup(getPid: () => number | null, preexisting: Set<number>): void {
   if (cleanupRegistered) return;
   cleanupRegistered = true;
   const kill = () => {
     const pid = getPid();
     if (pid != null) killTree(pid);
+    // On macOS the Gatekeeper/"disclaimer" shim double-forks the maestro JVMs,
+    // so they reparent to launchd (PID 1) and escape the transport.pid tree
+    // above. Recompute the warm-JVM set NOW and kill every signature-matched
+    // process that wasn't already running when we started — this catches both
+    // the `maestro mcp` server JVM and the device JVM it spawns later, while
+    // sparing a warm session owned by another concurrent Manos process.
+    for (const jvmPid of warmJvmPids()) {
+      if (!preexisting.has(jvmPid)) killWarmJvm(jvmPid);
+    }
   };
   // 'exit' runs synchronously — the only handler guaranteed to complete before
   // the process dies, so it's where we must kill the child tree.
