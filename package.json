@@ -1,5 +1,5 @@
 {
-  "name": "manos",
+  "name": "manos-mcp",
   "version": "0.1.0",
   "description": "A CLI MCP server for ad-hoc UI testing of Android & iOS apps — a tight act+observe loop, device-condition control, log/crash & network capture, OCR targeting, accessibility audits, and session recording that exports a replayable flow.",
   "type": "module",

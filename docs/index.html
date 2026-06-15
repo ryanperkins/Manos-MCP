@@ -129,14 +129,14 @@
 
       <!-- ===================== INSTALLATION ===================== -->
       <h2 id="install">Installation</h2>
-      <p>Manos is a stdio MCP server published to npm. Most AI clients can launch it on demand with <code>npx</code> — no install step — so the snippets below use that. Prefer a resident binary? <code>npm install -g manos</code> and use a bare <code>manos serve</code> instead.</p>
+      <p>Manos is a stdio MCP server published to npm. Most AI clients can launch it on demand with <code>npx</code> — no install step — so the snippets below use that. Prefer a resident binary? <code>npm install -g manos-mcp</code> and use a bare <code>manos serve</code> instead.</p>
 
       <h3>1 · Install (optional)</h3>
       <pre># run on demand — nothing to install:
-npx -y manos serve
+npx -y manos-mcp serve
 
 # …or install the CLI globally:
-npm install -g manos</pre>
+npm install -g manos-mcp</pre>
       <p class="note">Requires <b>Node 20+</b>. Working on manos itself, or pinning a local build? Clone the repo, <code>npm install</code> (it builds via the <code>prepare</code> script), and point your client at <code>node /ABS/PATH/to/Manos-MCP/dist/cli.js serve</code>.</p>
 
       <h3>2 · Register with your AI client</h3>
@@ -152,7 +152,7 @@ npm install -g manos</pre>
 
         <div class="tab-panel active" role="tabpanel">
           <p>One command registers the server (add <code>-s user</code> to share it across all your projects):</p>
-          <pre>claude mcp add manos -- npx -y manos serve
+          <pre>claude mcp add manos -- npx -y manos-mcp serve
 
 # globally installed binary instead:
 claude mcp add manos -- manos serve</pre>
@@ -165,7 +165,7 @@ claude mcp add manos -- manos serve</pre>
   "mcpServers": {
     "manos": {
       "command": "npx",
-      "args": ["-y", "manos", "serve"]
+      "args": ["-y", "manos-mcp", "serve"]
     }
   }
 }</pre>
@@ -177,7 +177,7 @@ claude mcp add manos -- manos serve</pre>
   "mcpServers": {
     "manos": {
       "command": "npx",
-      "args": ["-y", "manos", "serve"]
+      "args": ["-y", "manos-mcp", "serve"]
     }
   }
 }</pre>
@@ -191,7 +191,7 @@ claude mcp add manos -- manos serve</pre>
     "manos": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "manos", "serve"]
+      "args": ["-y", "manos-mcp", "serve"]
     }
   }
 }</pre>
@@ -204,7 +204,7 @@ claude mcp add manos -- manos serve</pre>
   "mcpServers": {
     "manos": {
       "command": "npx",
-      "args": ["-y", "manos", "serve"]
+      "args": ["-y", "manos-mcp", "serve"]
     }
   }
 }</pre>
@@ -214,14 +214,14 @@ claude mcp add manos -- manos serve</pre>
         <div class="tab-panel" role="tabpanel">
           <p>Any MCP-capable client speaks the same stdio protocol. Configure a server that runs:</p>
           <pre>command: npx
-args:    ["-y", "manos", "serve"]
+args:    ["-y", "manos-mcp", "serve"]
 transport: stdio</pre>
           <p>The most common config shape is a <code>mcpServers</code> object keyed by server name with <code>command</code> + <code>args</code>, as shown in the other tabs.</p>
         </div>
       </div>
 
       <h3>3 · Verify the toolchain</h3>
-      <pre>npx -y manos doctor        # or: manos doctor</pre>
+      <pre>npx -y manos-mcp doctor        # or: manos doctor</pre>
       <p class="note"><code>doctor</code> reports which backends it found (<code>adb</code>, <code>xcrun</code>, <code>idb</code>, <code>maestro</code>, OCR engine), lists connected devices, and prints each device's live capabilities — so you know what works before you rely on it. Android needs <code>adb</code> (auto-detected from <code>$ANDROID_HOME</code> / the default SDK path); iOS needs Xcode's <code>xcrun</code>. Everything else is optional and only gates the advanced features below.</p>
 
       <!-- ===================== BASIC OPERATIONS ===================== -->

@@ -9,7 +9,7 @@ manos gives an agent a tight **act → observe** loop, **device-condition contro
 ## Install
 
 ```bash
-npm install -g manos     # install the CLI, or run on demand with: npx -y manos
+npm install -g manos-mcp     # install the CLI, or run on demand with: npx -y manos-mcp
 manos doctor             # check toolchain + list devices & capabilities
 ```
 
@@ -26,13 +26,13 @@ iOS UI interaction works **without** `idb` by falling back to Maestro (slower; c
 
 ## Register with an MCP client
 
-Each tab launches manos with `npx -y manos serve`, which fetches and runs the published package on demand — no clone or global install required. (If you installed globally with `npm install -g manos`, use a bare `manos serve` instead.)
+Each tab launches manos with `npx -y manos-mcp serve`, which fetches and runs the published package on demand — no clone or global install required. (If you installed globally with `npm install -g manos-mcp`, use a bare `manos serve` instead.)
 
 <details open>
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add manos -- npx -y manos serve
+claude mcp add manos -- npx -y manos-mcp serve
 claude mcp list            # verify
 ```
 </details>
@@ -45,7 +45,7 @@ Edit `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude/`
 ```json
 {
   "mcpServers": {
-    "manos": { "command": "npx", "args": ["-y", "manos", "serve"] }
+    "manos": { "command": "npx", "args": ["-y", "manos-mcp", "serve"] }
   }
 }
 ```
@@ -59,7 +59,7 @@ Edit `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude/`
 ```json
 {
   "mcpServers": {
-    "manos": { "command": "npx", "args": ["-y", "manos", "serve"] }
+    "manos": { "command": "npx", "args": ["-y", "manos-mcp", "serve"] }
   }
 }
 ```
@@ -73,7 +73,7 @@ Edit `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude/`
 ```json
 {
   "servers": {
-    "manos": { "type": "stdio", "command": "npx", "args": ["-y", "manos", "serve"] }
+    "manos": { "type": "stdio", "command": "npx", "args": ["-y", "manos-mcp", "serve"] }
   }
 }
 ```
@@ -87,7 +87,7 @@ Edit `claude_desktop_config.json` (macOS `~/Library/Application Support/Claude/`
 ```json
 {
   "mcpServers": {
-    "manos": { "command": "npx", "args": ["-y", "manos", "serve"] }
+    "manos": { "command": "npx", "args": ["-y", "manos-mcp", "serve"] }
   }
 }
 ```
@@ -100,7 +100,7 @@ Any MCP-capable client speaks the same stdio protocol. Configure a server that r
 
 ```
 command: npx
-args:    ["-y", "manos", "serve"]
+args:    ["-y", "manos-mcp", "serve"]
 transport: stdio
 ```
 </details>
