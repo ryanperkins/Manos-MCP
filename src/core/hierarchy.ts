@@ -201,6 +201,61 @@ export function toCompactJson(screen: Screen): CompactScreen {
   };
 }
 
+/** A node with no children — used for the flat, salient-only fallback view. */
+function toFlatNode(el: UiElement): CompactNode {
+  const n = toCompactNode(el);
+  delete n.c;
+  return n;
+}
+
+/**
+ * Resource-id package segments that are never a meaningful app target — the soft
+ * keyboard (any IME) and the status/navigation bars. Excluded from the salient
+ * fallback so a screen with the keyboard up (hundreds of key nodes) collapses to
+ * just the app's real elements.
+ */
+const SYSTEM_NOISE_PKG_RE = /inputmethod|^com\.android\.systemui$|^android$/;
+
+/** Elements worth showing: anything interactive or carrying text/identity. */
+function isSalient(el: UiElement): boolean {
+  if (el.resourceId && SYSTEM_NOISE_PKG_RE.test(el.resourceId.split(":", 1)[0]!)) return false;
+  return (
+    el.clickable ||
+    el.scrollable ||
+    el.focused ||
+    !!(el.text || el.value || el.accessibility || el.resourceId || el.hint)
+  );
+}
+
+export interface SalientScreen {
+  device: { platform: Platform; id: string; size: [number, number] };
+  truncated: true;
+  note: string;
+  shown: number;
+  total: number;
+  elements: CompactNode[];
+}
+
+/**
+ * A compact, flattened view of only the meaningful elements (interactive or
+ * text-bearing), dropping pure layout containers and nesting. Used as an
+ * automatic fallback when the full tree would be too large to return inline
+ * (e.g. a screen with the soft keyboard or a long list open).
+ */
+export function toSalientJson(screen: Screen): SalientScreen {
+  const salient = screen.flat.filter(isSalient);
+  return {
+    device: { platform: screen.platform, id: screen.deviceId, size: [screen.width, screen.height] },
+    truncated: true,
+    note:
+      "Full UI tree was too large to return inline; showing interactive/text elements only (flattened). " +
+      "Call inspect_screen for the complete hierarchy, or find_text/find_elements to locate a specific target.",
+    shown: salient.length,
+    total: screen.flat.length,
+    elements: salient.map(toFlatNode),
+  };
+}
+
 // --- Diffing ---
 
 export interface ScreenDiff {

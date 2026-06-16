@@ -334,7 +334,8 @@ export class IosDriver implements Driver {
     }
   }
 
-  async inputText(deviceId: string, text: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async inputText(deviceId: string, text: string, _opts?: { perCharDelayMs?: number }): Promise<void> {
     if (await this.probeIdb()) {
       await this.idb(["ui", "text", "--udid", deviceId, text]);
     } else if (await this.probeMaestro()) {

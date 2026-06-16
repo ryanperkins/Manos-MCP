@@ -1,6 +1,6 @@
 import { DriverRegistry } from "../drivers/registry.js";
 import { SessionRecorder } from "../core/session.js";
-import { centerOf, diffScreens, findElements, toCompactJson } from "../core/hierarchy.js";
+import { centerOf, diffScreens, findElements, toCompactJson, toSalientJson } from "../core/hierarchy.js";
 import {
   centerOfWord,
   findOcrText,
@@ -225,13 +225,25 @@ export class AppContext {
       this.rememberScreen(after);
     }
 
-    blocks.push({
-      type: "text",
-      text: JSON.stringify(toCompactJson(after), null, 2),
-    });
+    // Full compact tree — but some screens (soft keyboard up, long lists) produce
+    // a tree far larger than the MCP response budget, which fails the whole call.
+    // If the full tree is too big, fall back to a flattened salient-only view so
+    // the agent still gets the new state (targets) in one trip instead of an error.
+    let payload = JSON.stringify(toCompactJson(after), null, 2);
+    if (payload.length > MAX_INLINE_SCREEN_CHARS) {
+      payload = JSON.stringify(toSalientJson(after), null, 2);
+    }
+    blocks.push({ type: "text", text: payload });
     return blocks;
   }
 }
+
+/**
+ * Upper bound on an inline act+observe screen payload (characters). Above this we
+ * switch to the salient-only view. Kept well under typical MCP token limits
+ * (~1 token ≈ 4 chars) so even a verbose screen returns cleanly.
+ */
+const MAX_INLINE_SCREEN_CHARS = 24_000;
 
 export function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

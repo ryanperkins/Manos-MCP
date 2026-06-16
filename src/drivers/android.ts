@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser";
 import { exec, ExecError } from "../util/exec.js";
 import { resolveAdb } from "../util/toolchain.js";
 import { finalizeScreen, type RawElement } from "../core/hierarchy.js";
+import { sleep } from "../core/waits.js";
 import { maestroHierarchy } from "../core/maestroDriver.js";
 import { maestroSession } from "../core/maestroSession.js";
 import {
@@ -54,6 +55,12 @@ const ORIENTATION_ROTATION: Record<Orientation, number> = {
   "upside-down": 2,
   "landscape-right": 3,
 };
+
+/**
+ * Launcher activities that debug builds add as extra home-screen icons but that
+ * are never the app's real entry point. Skipped when resolving what to launch.
+ */
+const DEBUG_LAUNCHER_RE = /leakcanary|\.LeakLauncherActivity$/i;
 
 /** Escape arbitrary text for `adb shell input text`. */
 function escapeInputText(text: string): string {
@@ -152,7 +159,7 @@ export class AndroidDriver implements Driver {
       input_text: { level: "full", backend: "input text" },
       swipe: { level: "full", backend: "input swipe" },
       press_key: { level: "full", backend: "input keyevent" },
-      launch: { level: "full", backend: "monkey / am start" },
+      launch: { level: "full", backend: "am start (resolved launcher)" },
       stop: { level: "full", backend: "am force-stop" },
       clear_state: { level: "full", backend: "pm clear (true data wipe)" },
       deeplink: { level: "full", backend: "am start -a VIEW -d" },
@@ -336,8 +343,29 @@ export class AndroidDriver implements Driver {
     ]);
   }
 
-  async inputText(deviceId: string, text: string): Promise<void> {
-    await this.shell(deviceId, ["input", "text", escapeInputText(text)]);
+  async inputText(deviceId: string, text: string, opts?: { perCharDelayMs?: number }): Promise<void> {
+    if (!text) return;
+    // Committing the whole string in one `input text` races fields that reformat
+    // on every keystroke (e.g. credit-card inputs whose TextWatcher inserts spaces):
+    // characters get dropped or reordered ("4242424242424242" -> "4224 4442"). Type
+    // one character at a time with a small settle delay so each keystroke is fully
+    // processed before the next. Single chars keep the original fast path.
+    const chars = [...text];
+    if (chars.length <= 1) {
+      await this.shell(deviceId, ["input", "text", escapeInputText(text)]);
+      return;
+    }
+    const delay = Math.max(0, opts?.perCharDelayMs ?? 60);
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]!;
+      // A bare space is swallowed by `input text`; send it as a key event instead.
+      if (ch === " ") {
+        await this.shell(deviceId, ["input", "keyevent", "62"]); // KEYCODE_SPACE
+      } else {
+        await this.shell(deviceId, ["input", "text", escapeInputText(ch)]);
+      }
+      if (delay > 0 && i < chars.length - 1) await sleep(delay);
+    }
   }
 
   async swipe(
@@ -370,18 +398,60 @@ export class AndroidDriver implements Driver {
   // --- App lifecycle / state ---
 
   async launchApp(deviceId: string, appId: string, _args?: string[]): Promise<void> {
+    // Explicit component ("pkg/activity") — launch it directly.
     if (appId.includes("/")) {
       await this.shell(deviceId, ["am", "start", "-n", appId]);
-    } else {
-      await this.shell(deviceId, [
-        "monkey",
-        "-p",
-        appId,
-        "-c",
-        "android.intent.category.LAUNCHER",
-        "1",
-      ]);
+      return;
     }
+    // Resolve the app's own MAIN/LAUNCHER activity so launches are deterministic.
+    // Debug builds often register extra launcher icons (e.g. LeakCanary), and a
+    // bare `monkey -c LAUNCHER` picks among them at random — landing on the wrong
+    // activity ~half the time. Pick the app's real launcher and start it explicitly.
+    const component = await this.resolveLauncherComponent(deviceId, appId);
+    if (component) {
+      await this.shell(deviceId, ["am", "start", "-n", component]);
+      return;
+    }
+    // Fallback: best-effort launcher intent (older devices without query-activities).
+    await this.shell(deviceId, [
+      "monkey",
+      "-p",
+      appId,
+      "-c",
+      "android.intent.category.LAUNCHER",
+      "1",
+    ]);
+  }
+
+  /**
+   * Find the app's real MAIN/LAUNCHER activity, deterministically. When a package
+   * declares more than one launcher (common in debug builds — LeakCanary, dev
+   * tools), prefer the one that isn't a known debug-only launcher.
+   */
+  private async resolveLauncherComponent(deviceId: string, appId: string): Promise<string | null> {
+    let out: string;
+    try {
+      out = (
+        await this.shell(deviceId, [
+          "cmd",
+          "package",
+          "query-activities",
+          "--brief",
+          "-a",
+          "android.intent.action.MAIN",
+          "-c",
+          "android.intent.category.LAUNCHER",
+        ])
+      ).stdout;
+    } catch {
+      return null; // query-activities unavailable → caller falls back to monkey
+    }
+    const comps = out
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith(`${appId}/`));
+    if (comps.length === 0) return null;
+    return comps.find((c) => !DEBUG_LAUNCHER_RE.test(c)) ?? comps[0]!;
   }
 
   async stopApp(deviceId: string, appId: string): Promise<void> {

@@ -169,7 +169,7 @@ export interface Driver {
   // --- Act ---
   tap(deviceId: string, x: number, y: number): Promise<void>;
   longPress(deviceId: string, x: number, y: number, durationMs: number): Promise<void>;
-  inputText(deviceId: string, text: string): Promise<void>;
+  inputText(deviceId: string, text: string, opts?: { perCharDelayMs?: number }): Promise<void>;
   swipe(
     deviceId: string,
     x1: number,

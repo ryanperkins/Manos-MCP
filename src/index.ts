@@ -4,7 +4,7 @@ export { AndroidDriver } from "./drivers/android.js";
 export { IosDriver } from "./drivers/ios.js";
 export * from "./drivers/types.js";
 export { auditScreen } from "./core/a11y.js";
-export { toCompactJson, diffScreens, findElements, finalizeScreen } from "./core/hierarchy.js";
+export { toCompactJson, toSalientJson, diffScreens, findElements, finalizeScreen } from "./core/hierarchy.js";
 export { SessionRecorder } from "./core/session.js";
 export { stepsToFlowYaml } from "./core/flow.js";
 export { applyConditions, resolveConditions, PRESETS } from "./core/conditions.js";
