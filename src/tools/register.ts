@@ -303,6 +303,14 @@ export function registerTools(server: McpServer, ctx: AppContext): void {
         resource_id: z.string().optional(),
         accessibility: z.string().optional(),
         index: z.number().int().optional(),
+        per_char_delay_ms: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            "Per-character typing delay in ms (default 60). Raise it if a field with live formatting (e.g. a credit-card input) drops or reorders characters; set 0 to commit the whole string at once.",
+          ),
         observe: observeArg,
       },
     },
@@ -321,7 +329,7 @@ export function registerTools(server: McpServer, ctx: AppContext): void {
           tgt.selector ? { tapOn: tgt.selector } : { tapOn: { point: `${tgt.x},${tgt.y}` } },
         );
       }
-      await driver.inputText(a.device_id, a.text);
+      await driver.inputText(a.device_id, a.text, { perCharDelayMs: a.per_char_delay_ms });
       ctx.recorder.record(`Typed "${a.text}"`, { inputText: a.text });
       return { content: await ctx.observe(a.device_id, a.observe, `Typed "${a.text}".`) };
     },

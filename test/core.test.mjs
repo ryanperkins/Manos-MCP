@@ -5,6 +5,7 @@ const base = new URL("../dist/", import.meta.url).pathname;
 const {
   finalizeScreen,
   toCompactJson,
+  toSalientJson,
   diffScreens,
   findElements,
   auditScreen,
@@ -71,6 +72,26 @@ test("toCompactJson emits abbreviated keys + bounds tuple", () => {
   assert.deepEqual(node.b, [0, 0, 100, 100]);
   assert.equal(node.txt, "Login");
   assert.equal(node.clickable, true);
+});
+
+test("toSalientJson flattens, keeps only meaningful elements, drops keyboard/system noise", () => {
+  const screen = makeScreen([
+    el({
+      cls: "FrameLayout", // pure layout container, no identity -> dropped
+      children: [
+        el({ cls: "Button", text: "Pay", clickable: true }),
+        el({ cls: "View" }), // no text/identity/interaction -> dropped
+        el({ cls: "Key", accessibility: "q", resourceId: "com.google.android.inputmethod.latin:id/D01" }), // keyboard -> dropped
+        el({ cls: "Clock", text: "6:42", resourceId: "com.android.systemui:id/clock" }), // system UI -> dropped
+      ],
+    }),
+  ]);
+  const salient = toSalientJson(screen);
+  assert.equal(salient.truncated, true);
+  const texts = salient.elements.map((n) => n.txt).filter(Boolean);
+  assert.deepEqual(texts, ["Pay"], "only the real interactive app element survives");
+  assert.equal(salient.shown, 1);
+  assert.ok(salient.elements.every((n) => n.c === undefined), "flattened: no children");
 });
 
 test("diffScreens detects added / removed / changed", () => {
