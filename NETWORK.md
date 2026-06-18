@@ -115,6 +115,31 @@ For cert-**pinned** iOS apps, the roadmap is a Frida **NSURLSession** hook —
 Frida attaches to simulator app processes directly from the Mac (no jailbreak,
 no `frida-server`), the same above-TLS idea as the Android OkHttp hook.
 
+## Mocking responses (iOS) — `network_mock`
+
+Because the iOS path is a real MITM proxy, manos can also **manipulate** responses, not just capture them — the thing test teams usually stand up a separate WireMock/MockServer for. `network_mock` takes a list of rules; each matches requests by `url` (regex) and optional `method`, and applies the **first match**:
+
+- **Synthesize** a response (`status` / `headers` / `body`) — short-circuits the request, so the server is never hit (force a `500`, an empty list, a malformed field, a feature-flag value…).
+- **Inject latency** (`delay_ms`) — exercise spinners/timeouts.
+- **Override headers** on the live response (`headers` alone, no `status`/`body`).
+- **Abort** the request (`abort: true`) — exercise offline/error paths.
+
+Rules are written to a JSON file the mitmproxy addon **re-reads on every request**, so you can add/change/clear mocks live with no proxy restart. Capture keeps logging throughout; mocked exchanges are flagged `"mock": true`. `network_mock` auto-starts the proxy if nothing is capturing yet. `replace: true` (default) replaces all rules; an empty list clears mocking.
+
+```jsonc
+// force the search endpoint to return an empty result set
+network_mock { device_id, rules: [
+  { "url": "v2/search", "method": "GET", "status": 200,
+    "headers": { "Content-Type": "application/json" }, "body": "{\"results\":[]}" }
+]}
+// 1.5s latency + 503 on the same endpoint
+{ "url": "v2/search", "status": 503, "delay_ms": 1500 }
+// kill a dependency to test the offline path
+{ "url": "telemetry\\.example\\.com", "abort": true }
+```
+
+iOS only in this version (Android OkHttp mocking is on the roadmap). Field-level JSON patching of *live* responses (change one field, pass the rest through) is also roadmap; today you replace the whole body.
+
 ## Setup / prerequisites
 
 1. **Host:** `python3 -m pip install --user 'frida==16.7.19'` (the `frida` Python module).

@@ -37,6 +37,8 @@ interface CaptureSession {
   appId: string;
   filter: string;
   outFile: string;
+  /** iOS only: JSON file of mock rules the mitmproxy addon reads live. */
+  mockFile?: string;
   proc: ChildProcess;
   stderr: string;
   startedAt: number;
@@ -46,10 +48,19 @@ interface CaptureSession {
   proxyService?: string;
 }
 
-/** mitmproxy addon emitting the shared JSONL shape (req/res events). */
+/**
+ * mitmproxy addon emitting the shared JSONL capture shape, plus rule-based
+ * response mocking. Rules are read live from MANOS_MOCK_FILE (a JSON array) on
+ * every request, so the agent can add/change/clear mocks without restarting the
+ * proxy. A matching rule can synthesize a response (short-circuiting the server),
+ * inject latency, override headers on the live response, or abort the request.
+ * Capture logging continues either way; mocked exchanges are flagged "mock".
+ */
 const MITM_ADDON = `import json, os, re, time
+from mitmproxy import http
 OUT = os.environ.get("MANOS_FLOW_FILE", "/tmp/flows.jsonl")
 FILT = os.environ.get("MANOS_FILTER", "")
+MOCKS = os.environ.get("MANOS_MOCK_FILE", "")
 rx = re.compile(FILT) if FILT else None
 def body(msg):
     try: c = msg.content  # mitmproxy auto-decompresses (gzip/br/deflate)
@@ -64,16 +75,55 @@ def w(r):
     try:
         with open(OUT, "a") as f: f.write(json.dumps(r) + "\\n")
     except Exception: pass
+def load_mocks():
+    if not MOCKS: return []
+    try:
+        with open(MOCKS) as f: return json.load(f)
+    except Exception: return []
+def match(rule, flow):
+    try:
+        if not re.search(rule.get("url", ""), flow.request.pretty_url): return False
+    except Exception: return False
+    m = rule.get("method")
+    return not m or m.upper() == flow.request.method.upper()
 def request(flow):
     u = flow.request.pretty_url
-    if rx and not rx.search(u): return
-    w({"k": "req", "ts": time.time(), "method": flow.request.method, "url": u,
-       "headers": dict(flow.request.headers), "body": body(flow.request)})
+    if not (rx and not rx.search(u)):
+        w({"k": "req", "ts": time.time(), "method": flow.request.method, "url": u,
+           "headers": dict(flow.request.headers), "body": body(flow.request)})
+    for rule in load_mocks():
+        if not match(rule, flow): continue
+        if rule.get("delay_ms"):
+            try: time.sleep(float(rule["delay_ms"]) / 1000.0)
+            except Exception: pass
+        if rule.get("abort"):
+            w({"k": "res", "mock": True, "ts": time.time(), "method": flow.request.method,
+               "url": u, "code": 0, "desc": "aborted by mock"})
+            flow.kill(); return
+        has_status = rule.get("status") is not None
+        has_body = rule.get("body") is not None
+        hdrs = rule.get("headers") or {}
+        if has_status or has_body:
+            b = rule.get("body") or ""
+            if isinstance(b, str): b = b.encode("utf-8")
+            flow.response = http.Response.make(int(rule.get("status") or 200), b, hdrs)
+            flow.metadata["manos_mock"] = True
+            return
+        # No synthesized response: mark as mocked pass-through (latency and/or
+        # header override applied to the live response in response()).
+        flow.metadata["manos_mock"] = True
+        if hdrs: flow.metadata["manos_mock_headers"] = hdrs
+        return
 def response(flow):
     u = flow.request.pretty_url
+    mh = flow.metadata.get("manos_mock_headers")
+    if mh:
+        for k, v in mh.items(): flow.response.headers[k] = v
     if rx and not rx.search(u): return
-    w({"k": "res", "ts": time.time(), "method": flow.request.method, "url": u, "code": flow.response.status_code,
-       "headers": dict(flow.response.headers), "body": body(flow.response)})
+    rec = {"k": "res", "ts": time.time(), "method": flow.request.method, "url": u,
+           "code": flow.response.status_code, "headers": dict(flow.response.headers), "body": body(flow.response)}
+    if flow.metadata.get("manos_mock"): rec["mock"] = True
+    w(rec)
 `;
 
 interface RawEvent {
@@ -122,6 +172,53 @@ function bestBody(bodies: string[]): string | undefined {
     }
   }
   return best;
+}
+
+/**
+ * A response-mocking rule (iOS). `url` is a regex matched against the full URL;
+ * an optional `method` narrows it. At least one action is required: synthesize a
+ * response (`status`/`body`/`headers`), inject latency (`delay_ms`), override
+ * headers on the live response (`headers` alone), or fail the request (`abort`).
+ * Keys match the JSON the mitmproxy addon reads, so no translation is needed.
+ */
+export interface MockRule {
+  url: string;
+  method?: string;
+  status?: number;
+  headers?: Record<string, string>;
+  body?: string;
+  delay_ms?: number;
+  abort?: boolean;
+}
+
+/** Validate + trim mock rules to the canonical shape. Pure; unit-tested. */
+export function normalizeMockRules(rules: MockRule[]): MockRule[] {
+  return rules.map((r, i) => {
+    if (!r || typeof r.url !== "string" || !r.url) {
+      throw new Error(`mock rule ${i}: 'url' (a regex) is required.`);
+    }
+    try {
+      new RegExp(r.url);
+    } catch {
+      throw new Error(`mock rule ${i}: 'url' is not a valid regex: "${r.url}".`);
+    }
+    const hasHeaders = !!r.headers && Object.keys(r.headers).length > 0;
+    const hasAction =
+      r.status !== undefined || r.body !== undefined || hasHeaders || r.delay_ms !== undefined || r.abort === true;
+    if (!hasAction) {
+      throw new Error(
+        `mock rule ${i} ("${r.url}"): needs at least one action (status, headers, body, delay_ms, or abort).`,
+      );
+    }
+    const out: MockRule = { url: r.url };
+    if (r.method) out.method = r.method;
+    if (r.status !== undefined) out.status = r.status;
+    if (hasHeaders) out.headers = r.headers;
+    if (r.body !== undefined) out.body = r.body;
+    if (r.delay_ms !== undefined) out.delay_ms = r.delay_ms;
+    if (r.abort) out.abort = true;
+    return out;
+  });
 }
 
 export interface FridaStatus {
@@ -330,12 +427,14 @@ class NetCapture {
     // 3) Start mitmdump with the shared-format addon + filter.
     const dir = mkdtempSync(join(tmpdir(), "manos-net-"));
     const outFile = join(dir, "flows.jsonl");
+    const mockFile = join(dir, "mocks.json");
     const addonFile = join(dir, "addon.py");
     await writeFile(outFile, "");
+    await writeFile(mockFile, "[]"); // mock-ready; rules added later via setMocks
     writeFileSync(addonFile, MITM_ADDON);
     const proc = spawn("mitmdump", ["-p", String(port), "-q", "-s", addonFile], {
       stdio: ["ignore", "ignore", "pipe"],
-      env: { ...process.env, MANOS_FLOW_FILE: outFile, MANOS_FILTER: filter },
+      env: { ...process.env, MANOS_FLOW_FILE: outFile, MANOS_FILTER: filter, MANOS_MOCK_FILE: mockFile },
     });
 
     const session: CaptureSession = {
@@ -344,6 +443,7 @@ class NetCapture {
       appId: opts.appId ?? "",
       filter,
       outFile,
+      mockFile,
       proc,
       stderr: "",
       startedAt: Date.now(),
@@ -451,6 +551,48 @@ class NetCapture {
   async clear(deviceId: string): Promise<void> {
     const session = this.sessions.get(deviceId);
     if (session) await writeFile(session.outFile, "");
+  }
+
+  /** Current mock rules for a device (empty if none / no session). */
+  async getMocks(deviceId: string): Promise<MockRule[]> {
+    const session = this.sessions.get(deviceId);
+    if (!session?.mockFile || !existsSync(session.mockFile)) return [];
+    try {
+      return JSON.parse(await readFile(session.mockFile, "utf8")) as MockRule[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Set (replace) or append mock rules for a device. iOS only — mocking rides
+   * the mitmproxy proxy path. Auto-starts the proxy if nothing is capturing yet.
+   * Rules hot-reload (the addon re-reads the file per request); empty + replace
+   * clears mocking.
+   */
+  async setMocks(
+    deviceId: string,
+    rules: MockRule[],
+    opts: { platform: "android" | "ios"; replace?: boolean },
+  ): Promise<{ rules: MockRule[]; autoStarted: boolean }> {
+    if (opts.platform !== "ios") {
+      throw new Error(
+        "Network mocking is iOS-only in this version (Android OkHttp mocking is planned). " +
+          "Use an iOS simulator device id.",
+      );
+    }
+    const normalized = normalizeMockRules(rules);
+    let autoStarted = false;
+    if (!this.sessions.has(deviceId)) {
+      const res = await this.startProxy(deviceId, {});
+      if (!res.started) throw new Error(res.message);
+      autoStarted = true;
+    }
+    const session = this.sessions.get(deviceId);
+    if (!session?.mockFile) throw new Error("No iOS capture session with a mock file is available.");
+    const final = opts.replace === false ? [...(await this.getMocks(deviceId)), ...normalized] : normalized;
+    await writeFile(session.mockFile, JSON.stringify(final));
+    return { rules: final, autoStarted };
   }
 
   async stop(deviceId: string): Promise<{ stopped: boolean }> {

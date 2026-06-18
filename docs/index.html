@@ -642,9 +642,9 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
       </p>
 
       <div class="adv">
-        <h4>🔌 Network capture (decrypted HTTP)</h4>
-        <p>Capture the real HTTP an app makes — above TLS, post-decryption — filtered to the endpoints you care about so the agent isn't flooded. Bodies are decompressed and readable.</p>
-        <p class="tools-line"><code>network_start</code> · <code>network_requests</code> · <code>network_clear</code> · <code>network_stop</code></p>
+        <h4>🔌 Network capture &amp; mocking (decrypted HTTP)</h4>
+        <p>Capture the real HTTP an app makes — above TLS, post-decryption — filtered to the endpoints you care about so the agent isn't flooded. Bodies are decompressed and readable. On iOS, also <b>mock</b> responses to test hard-to-reproduce states.</p>
+        <p class="tools-line"><code>network_start</code> · <code>network_requests</code> · <code>network_clear</code> · <code>network_stop</code> · <code>network_mock</code></p>
         <div class="callout">
           <b>Android setup (Frida / OkHttp hook).</b> Works through HTTP/2, certificate pinning, and proxy-bypass because it hooks OkHttp in-process, not the socket.
           <br>• A <b>debuggable</b> app build (or any app on an emulator / rooted device).
@@ -654,6 +654,10 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
         </div>
         <div class="callout">
           <b>iOS Simulator setup (mitmproxy).</b> <code>brew install mitmproxy</code>. Manos installs a <code>simctl</code>-trusted CA and manages the macOS proxy automatically (saved &amp; restored on stop — no sudo). Apps using <code>NSURLSession</code> certificate pinning are not yet captured (NSURLSession Frida hook is planned).
+        </div>
+        <div class="callout">
+          <b>Mocking responses (iOS).</b> <code>network_mock</code> overrides live API responses to test the states that are painful to reproduce — without a separate mock server or build changes. Rules match by URL regex (+ method) and can synthesize a <code>status</code>/<code>headers</code>/<code>body</code>, inject latency (<code>delay_ms</code>), override headers, or <code>abort</code> the request. Rules hot-reload; capture keeps logging (mocked exchanges flagged).
+          <br>e.g. <code>network_mock { device_id, rules: [{ url: "v2/search", status: 503, delay_ms: 1500 }] }</code>.
         </div>
         <p class="note">Full walkthrough and troubleshooting: <a href="../NETWORK.md">NETWORK.md</a>.</p>
       </div>
@@ -818,6 +822,10 @@ wait_for         { device_id, text: "Welcome", timeout_ms: 8000 }</pre>
         <tr>
         <td class="tool">network_start / network_requests / network_clear / network_stop</td>
         <td>Capture decrypted HTTP from a debug app (Android: Frida + OkHttp hook; iOS: mitmproxy + trusted CA), filtered to specific endpoints. See NETWORK.md.</td>
+        </tr>
+        <tr>
+        <td class="tool">network_mock</td>
+        <td>Mock/override API responses on iOS (mitmproxy): match by URL regex + method, then synthesize status/headers/body, inject latency, override headers, or abort. Rules hot-reload; no separate mock server. See NETWORK.md.</td>
         </tr>
         <tr>
         <td class="tool">run_flow</td>
