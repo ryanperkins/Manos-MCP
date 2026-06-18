@@ -139,6 +139,7 @@ Full reference and the **Android vs iOS comparison matrix** are in [docs/index.h
 - **Device conditions:** `set_appearance`, `set_orientation`, `set_locale`, `set_network`, `set_location`, `set_font_scale`, `set_status_bar`, `push_notification`, and `set_conditions` (apply many at once / named presets like `offline`, `accessibility`, `screenshot`).
 - **Diagnostics:** `get_logs` (with crash/ANR detection), `a11y_audit`.
 - **Network capture (debug apps):** `network_start`/`network_requests`/`network_clear`/`network_stop` — capture decrypted HTTP filtered to specific endpoints. Android hooks OkHttp via Frida (works through HTTP/2, pinning, proxy-bypass); iOS Simulator uses mitmproxy + a `simctl`-trusted CA. See [NETWORK.md](NETWORK.md).
+- **Network mocking (Android):** `network_mock` — manipulate live API responses to test hard-to-reproduce states: override `status`/`headers`, replace the `body`, **regex-`rewrite` a field in the live body** (keep the rest), or inject latency. Rule-based (URL regex + method), hot-reloads, no separate mock server or build change. Rides the Frida/OkHttp capture hook (per-process, no host-proxy disruption — `network_start` first). iOS response mocking is in development. See [NETWORK.md](NETWORK.md#mocking-responses-android--network_mock).
 - **Recording:** `start_recording` → act → `export_flow` (replayable Maestro flow) or `export_report` (self-contained HTML report: screenshot timeline + flow + logs + captured network).
 
 A typical loop:

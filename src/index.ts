@@ -9,6 +9,7 @@ export { SessionRecorder } from "./core/session.js";
 export { stepsToFlowYaml } from "./core/flow.js";
 export { applyConditions, resolveConditions, PRESETS } from "./core/conditions.js";
 export { buildReportHtml } from "./core/report.js";
+export { normalizeMockRules } from "./core/netcapture.js";
 export {
   parseTesseractTsv,
   findOcrText,

@@ -1028,6 +1028,67 @@ export function registerTools(server: McpServer, ctx: AppContext): void {
     },
   );
 
+  define(
+    "network_mock",
+    {
+      title: "Mock network responses",
+      description:
+        "Override API responses to test hard-to-reproduce states (Android). Each rule matches requests by URL regex (+ optional method) and can override the status/headers, replace the body, regex-rewrite the live body (change one field, keep the rest), or inject latency. First match wins; rules hot-reload; capture keeps logging (mocked exchanges flagged). Android (Frida/OkHttp): call network_start with app_id first — mocking rides the capture hook (abort not yet supported). iOS response mocking is in development (network_start still captures). `replace:true` (default) replaces all rules; an empty list clears mocking.",
+      inputSchema: {
+        device_id: deviceId,
+        rules: z
+          .array(
+            z.object({
+              url: z.string().describe("URL regex to match (e.g. 'v2/search')"),
+              method: z.string().optional().describe("HTTP method filter (GET/POST/...); any if omitted"),
+              status: z.number().int().optional().describe("Response status code to return"),
+              headers: z.record(z.string()).optional().describe("Response headers to set/override"),
+              body: z.string().optional().describe("Replace the whole response body (JSON as a string)"),
+              rewrite: z
+                .array(z.object({ find: z.string().describe("regex"), replace: z.string() }))
+                .optional()
+                .describe("Regex find/replace on the live response body — change specific fields, keep the rest"),
+              delay_ms: z.number().int().optional().describe("Inject latency (ms) before responding"),
+              abort: z.boolean().optional().describe("Fail the request (connection error). iOS only."),
+            }),
+          )
+          .default([])
+          .describe("Mock rules; first match wins. Empty list with replace=true clears all mocks."),
+        replace: z.boolean().default(true).describe("Replace all rules (true) or append to existing (false)"),
+      },
+    },
+    async (a) => {
+      const platform = ctx.registry.platformOf(a.device_id);
+      try {
+        const { rules } = await netCapture.setMocks(a.device_id, a.rules, {
+          platform,
+          replace: a.replace,
+        });
+        if (rules.length === 0) {
+          return { content: [text("Mocking cleared — all responses pass through live.")] };
+        }
+        const lines = rules.map((r) => {
+          const action = r.abort
+            ? "abort"
+            : [
+                r.status != null ? `status ${r.status}` : null,
+                r.body != null ? "body" : null,
+                r.rewrite?.length ? `rewrite ×${r.rewrite.length}` : null,
+                r.headers ? "headers" : null,
+                r.delay_ms != null ? `+${r.delay_ms}ms` : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
+          return `  • ${r.method ?? "ANY"} /${r.url}/ → ${action}`;
+        });
+        const head = `${rules.length} mock rule(s) active:`;
+        return { content: [text(`${head}\n${lines.join("\n")}`)] };
+      } catch (err) {
+        return { content: [text(errMessage(err))], isError: true };
+      }
+    },
+  );
+
   // =========================================================================
   // SESSION RECORDING  ->  REPLAYABLE FLOW
   // =========================================================================
