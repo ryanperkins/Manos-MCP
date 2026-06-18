@@ -37,6 +37,8 @@ interface CaptureSession {
   appId: string;
   filter: string;
   outFile: string;
+  /** Android only: JSON file of mock rules the Frida/OkHttp hook reads live. */
+  mockFile?: string;
   proc: ChildProcess;
   stderr: string;
   startedAt: number;
@@ -46,7 +48,7 @@ interface CaptureSession {
   proxyService?: string;
 }
 
-/** mitmproxy addon emitting the shared JSONL shape (req/res events). */
+/** mitmproxy addon emitting the shared JSONL capture shape (iOS capture path). */
 const MITM_ADDON = `import json, os, re, time
 OUT = os.environ.get("MANOS_FLOW_FILE", "/tmp/flows.jsonl")
 FILT = os.environ.get("MANOS_FILTER", "")
@@ -124,6 +126,70 @@ function bestBody(bodies: string[]): string | undefined {
   return best;
 }
 
+/**
+ * A response-mocking rule (Android). `url` is a regex matched against the full
+ * URL; an optional `method` narrows it. At least one action is required: override
+ * `status`/`headers`, replace the `body`, regex-`rewrite` the live body (change a
+ * field, keep the rest), or inject latency (`delay_ms`). Keys match the JSON the
+ * Frida/OkHttp hook reads, so no translation is needed. (`abort` is accepted by
+ * the schema but only honored on the iOS proxy path, which is not on this build.)
+ */
+export interface MockRule {
+  url: string;
+  method?: string;
+  status?: number;
+  headers?: Record<string, string>;
+  body?: string;
+  /** Regex find/replace applied to the live response body (change a field, keep the rest). */
+  rewrite?: { find: string; replace: string }[];
+  delay_ms?: number;
+  abort?: boolean;
+}
+
+/** Validate + trim mock rules to the canonical shape. Pure; unit-tested. */
+export function normalizeMockRules(rules: MockRule[]): MockRule[] {
+  return rules.map((r, i) => {
+    if (!r || typeof r.url !== "string" || !r.url) {
+      throw new Error(`mock rule ${i}: 'url' (a regex) is required.`);
+    }
+    try {
+      new RegExp(r.url);
+    } catch {
+      throw new Error(`mock rule ${i}: 'url' is not a valid regex: "${r.url}".`);
+    }
+    const hasHeaders = !!r.headers && Object.keys(r.headers).length > 0;
+    const hasRewrite = Array.isArray(r.rewrite) && r.rewrite.length > 0;
+    if (hasRewrite) {
+      for (const [j, rw] of r.rewrite!.entries()) {
+        if (!rw || typeof rw.find !== "string" || typeof rw.replace !== "string") {
+          throw new Error(`mock rule ${i} rewrite[${j}]: 'find' and 'replace' strings are required.`);
+        }
+        try {
+          new RegExp(rw.find);
+        } catch {
+          throw new Error(`mock rule ${i} rewrite[${j}]: 'find' is not a valid regex: "${rw.find}".`);
+        }
+      }
+    }
+    const hasAction =
+      r.status !== undefined || r.body !== undefined || hasHeaders || hasRewrite || r.delay_ms !== undefined || r.abort === true;
+    if (!hasAction) {
+      throw new Error(
+        `mock rule ${i} ("${r.url}"): needs at least one action (status, headers, body, rewrite, delay_ms, or abort).`,
+      );
+    }
+    const out: MockRule = { url: r.url };
+    if (r.method) out.method = r.method;
+    if (r.status !== undefined) out.status = r.status;
+    if (hasHeaders) out.headers = r.headers;
+    if (r.body !== undefined) out.body = r.body;
+    if (hasRewrite) out.rewrite = r.rewrite!.map((rw) => ({ find: rw.find, replace: rw.replace }));
+    if (r.delay_ms !== undefined) out.delay_ms = r.delay_ms;
+    if (r.abort) out.abort = true;
+    return out;
+  });
+}
+
 export interface FridaStatus {
   pythonFrida: boolean;
   serverRunning: boolean;
@@ -140,7 +206,7 @@ class NetCapture {
 
   /** Check that the host `frida` python module and on-device frida-server exist. */
   async status(deviceId: string): Promise<FridaStatus> {
-    const pythonFrida = await canRun("python3", ["-c", "import frida"]);
+    const pythonFrida = await canRun(process.env.MANOS_PYTHON || "python3", ["-c", "import frida"]);
     let serverRunning = false;
     let abi: string | undefined;
     try {
@@ -196,7 +262,9 @@ class NetCapture {
     const filter = opts.filter ?? "";
     const dir = mkdtempSync(join(tmpdir(), "manos-net-"));
     const outFile = join(dir, "flows.jsonl");
+    const mockFile = join(dir, "mocks.json");
     await writeFile(outFile, "");
+    await writeFile(mockFile, "[]"); // mock-ready; rules added later via setMocks (hot-reloaded)
 
     // Resolve the running pid; if absent (or spawn requested), spawn fresh to
     // catch startup traffic.
@@ -214,19 +282,24 @@ class NetCapture {
       HOOK_PATH,
       "--filter",
       filter,
+      "--mocks",
+      mockFile,
       "--out",
       outFile,
     ];
     if (pid && !opts.spawn) args.push("--pid", pid);
     else args.push("--spawn", opts.appId);
 
-    const proc = spawn("python3", args, { stdio: ["ignore", "ignore", "pipe"] });
+    // The sidecar needs the `frida` module; MANOS_PYTHON lets the host point at a
+    // venv/interpreter that has it (default: python3 on PATH).
+    const proc = spawn(process.env.MANOS_PYTHON || "python3", args, { stdio: ["ignore", "ignore", "pipe"] });
     const session: CaptureSession = {
       deviceId,
       backend: "frida",
       appId: opts.appId,
       filter,
       outFile,
+      mockFile,
       proc,
       stderr: "",
       startedAt: Date.now(),
@@ -451,6 +524,50 @@ class NetCapture {
   async clear(deviceId: string): Promise<void> {
     const session = this.sessions.get(deviceId);
     if (session) await writeFile(session.outFile, "");
+  }
+
+  /** Current mock rules for a device (empty if none / no session). */
+  async getMocks(deviceId: string): Promise<MockRule[]> {
+    const session = this.sessions.get(deviceId);
+    if (!session?.mockFile || !existsSync(session.mockFile)) return [];
+    try {
+      return JSON.parse(await readFile(session.mockFile, "utf8")) as MockRule[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Set (replace) or append mock rules for a device. Android only — mocking rides
+   * the Frida/OkHttp capture hook (per-process), so a capture must already be
+   * running. Rules hot-reload (the hook re-reads the file); empty + replace clears
+   * mocking. (iOS response mocking is in development — capture-only on this build.)
+   */
+  async setMocks(
+    deviceId: string,
+    rules: MockRule[],
+    opts: { platform: "android" | "ios"; replace?: boolean },
+  ): Promise<{ rules: MockRule[]; autoStarted: boolean }> {
+    if (opts.platform === "ios") {
+      throw new Error(
+        "iOS response mocking is in development; only Android is supported in this build. " +
+          "iOS network_start still captures traffic.",
+      );
+    }
+    const normalized = normalizeMockRules(rules);
+    if (!this.sessions.has(deviceId)) {
+      // Android mocking rides the Frida/OkHttp capture hook (per-process, needs
+      // app_id + frida-server), so a capture must already be running.
+      throw new Error(
+        "Start capture first — Android mocking rides the Frida capture hook. " +
+          "Call network_start with the app_id (frida-server required), then network_mock.",
+      );
+    }
+    const session = this.sessions.get(deviceId);
+    if (!session?.mockFile) throw new Error("No capture session with a mock file is available.");
+    const final = opts.replace === false ? [...(await this.getMocks(deviceId)), ...normalized] : normalized;
+    await writeFile(session.mockFile, JSON.stringify(final));
+    return { rules: final, autoStarted: false };
   }
 
   async stop(deviceId: string): Promise<{ stopped: boolean }> {

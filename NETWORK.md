@@ -115,6 +115,33 @@ For cert-**pinned** iOS apps, the roadmap is a Frida **NSURLSession** hook —
 Frida attaches to simulator app processes directly from the Mac (no jailbreak,
 no `frida-server`), the same above-TLS idea as the Android OkHttp hook.
 
+## Mocking responses (Android) — `network_mock`
+
+manos can also **manipulate** responses, not just capture them — the thing test teams usually stand up a separate WireMock/MockServer for, but in-the-loop and with no build change. `network_mock` takes a list of rules; each matches requests by `url` (regex) + optional `method`, and applies the **first match**:
+
+- **Override** the `status` / `headers`.
+- **Replace** the whole `body`.
+- **Rewrite** the live body (`rewrite: [{find, replace}]`, regex) — change a field, keep the rest. The standout: you transform the *real* response field-by-field instead of hand-authoring a full fixture.
+- **Inject latency** (`delay_ms`).
+
+Mocking rides the same in-process **Frida/OkHttp** hook as capture, so **start capture first** (`network_start` with `app_id`; needs frida-server — see prerequisites). It works at OkHttp's `Response` build, transforming the real response — it doesn't short-circuit the network, so `abort` and server-free `status`/`body` synthesis aren't available on this path yet. The hook gates on the readable, body-bearing build and only acts when a rewrite actually changes the body, so the mock lands on the response the app consumes (not OkHttp's empty cache/network shells). Rules hot-reload via a Frida `post`; everything is per-process, so there's **no host-proxy disruption** — host apps stay online.
+
+Capture keeps logging throughout; mocked exchanges are flagged `"mock": true`. `replace: true` (default) replaces all rules; an empty list clears mocking. The Frida sidecar needs the `frida` module in its interpreter — set the `MANOS_PYTHON` env to a venv/interpreter that has it (must match the on-device frida-server version, 16.7.x). See [Setup](#setup--prerequisites).
+
+```jsonc
+// override a single field in the live response (keep everything else real)
+network_mock { device_id, rules: [
+  { "url": "v2/account", "rewrite": [{ "find": "\"tier\":\"free\"", "replace": "\"tier\":\"premium\"" }] }
+]}
+// force an error + slow response on an endpoint
+{ "url": "v2/checkout", "status": 503, "delay_ms": 1500 }
+// replace a whole payload with an empty result set
+{ "url": "v2/list", "method": "GET", "status": 200,
+  "headers": { "Content-Type": "application/json" }, "body": "{\"results\":[]}" }
+```
+
+**Android only** in this version. iOS response mocking is in development (iOS `network_start` still captures); `abort` and true no-server synthesis on Android are tracked for a later pass.
+
 ## Setup / prerequisites
 
 1. **Host:** `python3 -m pip install --user 'frida==16.7.19'` (the `frida` Python module).

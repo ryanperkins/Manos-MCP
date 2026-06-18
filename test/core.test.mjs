@@ -14,6 +14,7 @@ const {
   resolveConditions,
   PRESETS,
   buildReportHtml,
+  normalizeMockRules,
   parseTesseractTsv,
   findOcrText,
   centerOfWord,
@@ -178,6 +179,29 @@ test("buildReportHtml embeds steps, screenshots, and the flow", () => {
   assert.ok(html.includes('Tapped &quot;Login&quot;'), "descriptions are HTML-escaped");
   assert.ok(html.includes("flow.yaml"));
   assert.ok(html.includes("FATAL EXCEPTION"));
+});
+
+test("normalizeMockRules validates, trims, and rejects bad rules", () => {
+  // Valid rule with multiple actions passes through, dropping empty headers.
+  const ok = normalizeMockRules([
+    { url: "v2/search", method: "get", status: 500, body: "{}", headers: {}, delay_ms: 200 },
+  ]);
+  assert.equal(ok.length, 1);
+  assert.equal(ok[0].status, 500);
+  assert.equal(ok[0].method, "get");
+  assert.ok(!("headers" in ok[0]), "empty headers object is dropped");
+  // abort-only is a valid action.
+  assert.equal(normalizeMockRules([{ url: "x", abort: true }])[0].abort, true);
+  // Missing url -> throws.
+  assert.throws(() => normalizeMockRules([{ status: 200 }]), /url.*required/);
+  // No action -> throws.
+  assert.throws(() => normalizeMockRules([{ url: "x" }]), /at least one action/);
+  // Invalid regex -> throws.
+  assert.throws(() => normalizeMockRules([{ url: "(", status: 200 }]), /not a valid regex/);
+  // rewrite is a valid action; entries validated.
+  const rw = normalizeMockRules([{ url: "search", rewrite: [{ find: "a", replace: "b" }] }]);
+  assert.equal(rw[0].rewrite[0].find, "a");
+  assert.throws(() => normalizeMockRules([{ url: "x", rewrite: [{ find: "(" }] }]), /find.*replace|not a valid regex/);
 });
 
 test("parseTesseractTsv extracts word rows with pixel boxes", () => {
